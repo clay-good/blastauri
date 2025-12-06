@@ -1,0 +1,19 @@
+{# Cloudflare WAF Variables Template #}
+{# Variables: default_environment #}
+
+variable "cloudflare_api_token" {
+  description = "Cloudflare API token with WAF permissions"
+  type        = string
+  sensitive   = true
+}
+
+variable "cloudflare_zone_id" {
+  description = "Cloudflare Zone ID to apply WAF rules"
+  type        = string
+}
+
+variable "environment" {
+  description = "Environment name for tagging"
+  type        = string
+  default     = "{{ default_environment | default('production') }}"
+}

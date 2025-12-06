@@ -1,0 +1,81 @@
+{
+    "_readme": [
+        "This file locks the dependencies of your project to a known state"
+    ],
+    "content-hash": "abc123def456",
+    "packages": [
+        {
+            "name": "laravel/framework",
+            "version": "v10.38.2",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/laravel/framework.git",
+                "reference": "abc123"
+            },
+            "require": {
+                "php": "^8.1"
+            },
+            "type": "library"
+        },
+        {
+            "name": "guzzlehttp/guzzle",
+            "version": "7.8.1",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/guzzle/guzzle.git",
+                "reference": "def456"
+            },
+            "require": {
+                "php": "^7.2.5 || ^8.0"
+            },
+            "type": "library"
+        },
+        {
+            "name": "monolog/monolog",
+            "version": "3.5.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/Seldaek/monolog.git",
+                "reference": "ghi789"
+            },
+            "require": {
+                "php": ">=8.1"
+            },
+            "type": "library"
+        }
+    ],
+    "packages-dev": [
+        {
+            "name": "phpunit/phpunit",
+            "version": "10.5.3",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/sebastianbergmann/phpunit.git",
+                "reference": "jkl012"
+            },
+            "require": {
+                "php": ">=8.1"
+            },
+            "type": "library"
+        },
+        {
+            "name": "mockery/mockery",
+            "version": "1.6.7",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/mockery/mockery.git",
+                "reference": "mno345"
+            },
+            "require": {
+                "php": "^8.0"
+            },
+            "type": "library"
+        }
+    ],
+    "aliases": [],
+    "minimum-stability": "stable",
+    "prefer-stable": true,
+    "platform": {
+        "php": "^8.1"
+    }
+}

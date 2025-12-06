@@ -1,0 +1,116 @@
+{# AWS WAF Rule Template #}
+{# Variables: rule (WafRuleDefinition), sanitize_name (function) #}
+
+  rule {
+    name     = "{{ rule.config.name | escape }}"
+    priority = {{ rule.config.priority }}
+
+    action {
+{% if rule.config.mode.value == 'block' %}
+      block {}
+{% else %}
+      count {}
+{% endif %}
+    }
+
+    statement {
+{% if rule.statements | length == 1 %}
+{{ _render_single_statement(rule.statements[0]) | indent(6) }}
+{% else %}
+{% if rule.logic == 'or' %}
+      or_statement {
+{% else %}
+      and_statement {
+{% endif %}
+{% for stmt in rule.statements %}
+        statement {
+{{ _render_single_statement(stmt) | indent(10) }}
+        }
+{% endfor %}
+      }
+{% endif %}
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "{{ sanitize_name(rule.config.name) }}"
+      sampled_requests_enabled   = true
+    }
+  }
+
+{# Macro for single statement #}
+{% macro _render_single_statement(stmt) %}
+{% if stmt.match_type == 'regex' %}
+regex_pattern_set_reference_statement {
+  arn = aws_wafv2_regex_pattern_set.{{ sanitize_name(stmt.field_type) }}_patterns.arn
+
+  {{ _render_field_to_match(stmt) }}
+
+  {{ _render_transformations(stmt.transformations) }}
+}
+{% elif stmt.match_type == 'exact' %}
+byte_match_statement {
+  search_string         = "{{ stmt.patterns[0] | default('') | escape }}"
+  positional_constraint = "EXACTLY"
+
+  {{ _render_field_to_match(stmt) }}
+
+  {{ _render_transformations(stmt.transformations) }}
+}
+{% else %}
+byte_match_statement {
+  search_string         = "{{ stmt.patterns[0] | default('') | escape }}"
+  positional_constraint = "CONTAINS"
+
+  {{ _render_field_to_match(stmt) }}
+
+  {{ _render_transformations(stmt.transformations) }}
+}
+{% endif %}
+{% endmacro %}
+
+{# Macro for field_to_match #}
+{% macro _render_field_to_match(stmt) %}
+{% set field_type = stmt.field_type | lower %}
+{% if field_type == 'header' and stmt.field_name %}
+field_to_match {
+  single_header {
+    name = "{{ stmt.field_name | lower }}"
+  }
+}
+{% elif field_type == 'body' %}
+field_to_match {
+  body {
+    oversize_handling = "CONTINUE"
+  }
+}
+{% elif field_type == 'uri' %}
+field_to_match {
+  uri_path {}
+}
+{% elif field_type == 'query_string' %}
+field_to_match {
+  query_string {}
+}
+{% else %}
+field_to_match {
+  {{ field_type }} {}
+}
+{% endif %}
+{% endmacro %}
+
+{# Macro for text transformations #}
+{% macro _render_transformations(transformations) %}
+{% set transforms = transformations if transformations else ['none'] %}
+{% for t in transforms %}
+text_transformation {
+  priority = {{ loop.index0 }}
+  type     = "{{ _map_transformation(t) }}"
+}
+{% endfor %}
+{% endmacro %}
+
+{# Map transformation names #}
+{% macro _map_transformation(t) %}
+{% if t == 'lowercase' %}LOWERCASE{% elif t == 'url_decode' %}URL_DECODE{% elif t == 'html_entity_decode' %}HTML_ENTITY_DECODE{% elif t == 'compress_whitespace' %}COMPRESS_WHITE_SPACE{% elif t == 'base64_decode' %}BASE64_DECODE{% else %}NONE{% endif %}
+{% endmacro %}

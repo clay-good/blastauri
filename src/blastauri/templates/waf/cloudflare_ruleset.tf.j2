@@ -1,0 +1,73 @@
+{# Cloudflare WAF Ruleset Template #}
+{# Variables: name, rules, description, zone_id_var, sanitize_name (function) #}
+
+resource "cloudflare_ruleset" "{{ sanitize_name(name) }}" {
+  zone_id     = {{ zone_id_var | default('var.cloudflare_zone_id') }}
+  name        = "{{ name | escape }}"
+  description = "{{ description | default('Blastauri WAF ruleset') | escape }}"
+  kind        = "zone"
+  phase       = "http_request_firewall_custom"
+
+{% for rule in rules %}
+  rules {
+    action      = "{{ 'block' if rule.config.mode.value == 'block' else 'log' }}"
+    expression  = "{{ _generate_expression(rule) | escape }}"
+    description = "{{ rule.config.description | escape }}{% if rule.config.cve_ids %} (CVEs: {{ rule.config.cve_ids[:3] | join(', ') }}){% endif %}"
+    enabled     = true
+  }
+
+{% endfor %}
+}
+
+{# Macro to generate wirefilter expression #}
+{% macro _generate_expression(rule) %}
+{% set exprs = [] %}
+{% for stmt in rule.statements %}
+{% set _ = exprs.append(_statement_to_expr(stmt)) %}
+{% endfor %}
+{% if exprs | length == 1 %}
+{{ exprs[0] }}
+{% else %}
+{% if rule.logic == 'or' %}
+({{ exprs | join(' or ') }})
+{% else %}
+({{ exprs | join(' and ') }})
+{% endif %}
+{% endif %}
+{% endmacro %}
+
+{# Macro for single statement expression #}
+{% macro _statement_to_expr(stmt) %}
+{% set field = _get_cf_field(stmt) %}
+{% set field_expr = _apply_transforms(field, stmt.transformations) %}
+{% if stmt.match_type == 'regex' %}
+{{ field_expr }} ~ "{{ stmt.patterns[0] | default('') }}"
+{% elif stmt.match_type == 'exact' %}
+{% if stmt.patterns | length == 1 %}
+{{ field_expr }} eq "{{ stmt.patterns[0] | default('') }}"
+{% else %}
+{{ field_expr }} in { {{ stmt.patterns | map('format_str', '"%s"') | join(' ') }} }
+{% endif %}
+{% else %}
+{% if stmt.patterns | length == 1 %}
+{{ field_expr }} contains "{{ stmt.patterns[0] | default('') }}"
+{% else %}
+({{ stmt.patterns | map('format_contains', field_expr) | join(' or ') }})
+{% endif %}
+{% endif %}
+{% endmacro %}
+
+{# Get Cloudflare field name #}
+{% macro _get_cf_field(stmt) %}
+{% set field_type = stmt.field_type | lower %}
+{% if field_type == 'uri' %}http.request.uri.path{% elif field_type == 'query_string' %}http.request.uri.query{% elif field_type == 'body' %}http.request.body.raw{% elif field_type == 'header' and stmt.field_name %}http.request.headers["{{ stmt.field_name | lower }}"]{% elif field_type == 'method' %}http.request.method{% elif field_type == 'user_agent' %}http.user_agent{% else %}{{ field_type }}{% endif %}
+{% endmacro %}
+
+{# Apply transformations #}
+{% macro _apply_transforms(field, transforms) %}
+{% set result = field %}
+{% for t in transforms %}
+{% if t == 'lowercase' %}{% set result = 'lower(' ~ result ~ ')' %}{% elif t == 'url_decode' %}{% set result = 'url_decode(' ~ result ~ ')' %}{% elif t == 'html_entity_decode' %}{% set result = 'html_decode(' ~ result ~ ')' %}{% elif t == 'base64_decode' %}{% set result = 'base64_decode(' ~ result ~ ')' %}{% endif %}
+{% endfor %}
+{{ result }}
+{% endmacro %}

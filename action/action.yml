@@ -1,0 +1,187 @@
+name: 'Blastauri'
+description: 'Analyze dependency upgrade MRs/PRs for breaking changes and manage WAF rules'
+author: 'clay-good'
+
+branding:
+  icon: 'shield'
+  color: 'blue'
+
+inputs:
+  command:
+    description: 'Command to run: analyze, scan, waf-sync'
+    required: true
+    default: 'analyze'
+  path:
+    description: 'Path to repository root'
+    required: false
+    default: '.'
+  config:
+    description: 'Path to .blastauri.yml config file'
+    required: false
+  pr-number:
+    description: 'Pull request number (for analyze command)'
+    required: false
+  post-comment:
+    description: 'Post analysis results as PR comment'
+    required: false
+    default: 'true'
+  apply-labels:
+    description: 'Apply severity labels to PR'
+    required: false
+    default: 'true'
+  severity-threshold:
+    description: 'Minimum severity to report: critical, high, medium, low'
+    required: false
+    default: 'low'
+  waf-provider:
+    description: 'WAF provider for waf-sync: aws, cloudflare, both'
+    required: false
+    default: 'aws'
+  waf-mode:
+    description: 'WAF rule mode: log, block'
+    required: false
+    default: 'log'
+  waf-output-dir:
+    description: 'Output directory for WAF Terraform files'
+    required: false
+    default: './terraform/waf'
+  create-mr:
+    description: 'Create MR/PR for WAF changes'
+    required: false
+    default: 'false'
+  output-format:
+    description: 'Output format for scan: json, sarif, table'
+    required: false
+    default: 'table'
+  github-token:
+    description: 'GitHub token for API access'
+    required: false
+    default: ${{ github.token }}
+
+outputs:
+  breaking-changes:
+    description: 'Number of breaking changes detected'
+    value: ${{ steps.blastauri.outputs.breaking-changes }}
+  vulnerabilities:
+    description: 'Number of vulnerabilities detected'
+    value: ${{ steps.blastauri.outputs.vulnerabilities }}
+  waf-rules-created:
+    description: 'Number of WAF rules created'
+    value: ${{ steps.blastauri.outputs.waf-rules-created }}
+  mr-url:
+    description: 'URL of created MR/PR (if applicable)'
+    value: ${{ steps.blastauri.outputs.mr-url }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install Blastauri
+      shell: bash
+      run: |
+        python -m pip install --upgrade pip
+        pip install blastauri
+
+    - name: Run Blastauri
+      id: blastauri
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        BLASTAURI_CONFIG: ${{ inputs.config }}
+      run: |
+        set -e
+
+        # Initialize output variables
+        echo "breaking-changes=0" >> $GITHUB_OUTPUT
+        echo "vulnerabilities=0" >> $GITHUB_OUTPUT
+        echo "waf-rules-created=0" >> $GITHUB_OUTPUT
+        echo "mr-url=" >> $GITHUB_OUTPUT
+
+        case "${{ inputs.command }}" in
+          analyze)
+            # Analyze a pull request for breaking changes
+            ARGS="analyze"
+
+            if [ -n "${{ inputs.pr-number }}" ]; then
+              ARGS="$ARGS --pr ${{ inputs.pr-number }}"
+            elif [ -n "${{ github.event.pull_request.number }}" ]; then
+              ARGS="$ARGS --pr ${{ github.event.pull_request.number }}"
+            fi
+
+            if [ "${{ inputs.post-comment }}" = "true" ]; then
+              ARGS="$ARGS --comment"
+            fi
+
+            if [ "${{ inputs.apply-labels }}" = "true" ]; then
+              ARGS="$ARGS --label"
+            fi
+
+            ARGS="$ARGS --severity ${{ inputs.severity-threshold }}"
+
+            # Run analysis and capture output
+            OUTPUT=$(blastauri $ARGS --format json 2>/dev/null || true)
+
+            if [ -n "$OUTPUT" ]; then
+              BREAKING=$(echo "$OUTPUT" | jq -r '.breaking_changes // 0')
+              echo "breaking-changes=$BREAKING" >> $GITHUB_OUTPUT
+            fi
+            ;;
+
+          scan)
+            # Scan dependencies for vulnerabilities
+            ARGS="scan ${{ inputs.path }}"
+            ARGS="$ARGS --format ${{ inputs.output-format }}"
+            ARGS="$ARGS --severity ${{ inputs.severity-threshold }}"
+
+            if [ "${{ inputs.output-format }}" = "sarif" ]; then
+              ARGS="$ARGS --output blastauri-report.sarif"
+            fi
+
+            # Run scan and capture output
+            OUTPUT=$(blastauri $ARGS 2>/dev/null || true)
+
+            if [ "${{ inputs.output-format }}" = "json" ] && [ -n "$OUTPUT" ]; then
+              VULNS=$(echo "$OUTPUT" | jq -r '.total_vulnerabilities // 0')
+              echo "vulnerabilities=$VULNS" >> $GITHUB_OUTPUT
+            fi
+            ;;
+
+          waf-sync)
+            # Synchronize WAF rules based on detected vulnerabilities
+            ARGS="waf sync"
+            ARGS="$ARGS --provider ${{ inputs.waf-provider }}"
+            ARGS="$ARGS --mode ${{ inputs.waf-mode }}"
+            ARGS="$ARGS --output-dir ${{ inputs.waf-output-dir }}"
+
+            if [ "${{ inputs.create-mr }}" = "true" ]; then
+              ARGS="$ARGS --create-mr"
+            fi
+
+            # Run waf sync and capture output
+            OUTPUT=$(blastauri $ARGS --format json 2>/dev/null || true)
+
+            if [ -n "$OUTPUT" ]; then
+              RULES=$(echo "$OUTPUT" | jq -r '.rules_created // 0')
+              MR_URL=$(echo "$OUTPUT" | jq -r '.mr_url // ""')
+              echo "waf-rules-created=$RULES" >> $GITHUB_OUTPUT
+              echo "mr-url=$MR_URL" >> $GITHUB_OUTPUT
+            fi
+            ;;
+
+          *)
+            echo "Unknown command: ${{ inputs.command }}"
+            echo "Valid commands: analyze, scan, waf-sync"
+            exit 1
+            ;;
+        esac
+
+    - name: Upload SARIF (if scan with sarif format)
+      if: inputs.command == 'scan' && inputs.output-format == 'sarif'
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: blastauri-report.sarif
+      continue-on-error: true

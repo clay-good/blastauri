@@ -1,0 +1,25 @@
+{# AWS WAF Variables Template #}
+{# Variables: default_region, default_scope, default_environment #}
+
+variable "aws_region" {
+  description = "AWS region for WAF resources"
+  type        = string
+  default     = "{{ default_region | default('us-east-1') }}"
+}
+
+variable "waf_scope" {
+  description = "WAF scope: REGIONAL or CLOUDFRONT"
+  type        = string
+  default     = "{{ default_scope | default('REGIONAL') }}"
+
+  validation {
+    condition     = contains(["REGIONAL", "CLOUDFRONT"], var.waf_scope)
+    error_message = "WAF scope must be REGIONAL or CLOUDFRONT."
+  }
+}
+
+variable "environment" {
+  description = "Environment name for tagging"
+  type        = string
+  default     = "{{ default_environment | default('production') }}"
+}

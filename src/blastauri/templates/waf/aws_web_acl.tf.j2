@@ -1,0 +1,49 @@
+{# AWS WAF Web ACL Template #}
+{# Variables: name, rule_group_refs, description, tags, sanitize_name (function) #}
+
+resource "aws_wafv2_web_acl" "{{ sanitize_name(name) }}" {
+  name        = "{{ name | escape }}"
+  description = "{{ description | default('Blastauri WAF Web ACL') | escape }}"
+  scope       = var.waf_scope
+
+  default_action {
+    allow {}
+  }
+
+{% for ref in rule_group_refs %}
+  rule {
+    name     = "rule-group-{{ loop.index0 }}"
+    priority = {{ loop.index }}
+
+    override_action {
+      none {}
+    }
+
+    statement {
+      rule_group_reference_statement {
+        arn = {{ ref }}
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "rule-group-{{ loop.index0 }}"
+      sampled_requests_enabled   = true
+    }
+  }
+
+{% endfor %}
+  visibility_config {
+    cloudwatch_metrics_enabled = true
+    metric_name                = "{{ sanitize_name(name) }}"
+    sampled_requests_enabled   = true
+  }
+
+  tags = {
+    Name      = "{{ name | escape }}"
+    ManagedBy = "blastauri"
+{% for key, value in tags.items() %}
+    {{ key }} = "{{ value | escape }}"
+{% endfor %}
+  }
+}

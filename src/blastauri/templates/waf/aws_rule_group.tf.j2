@@ -1,0 +1,25 @@
+{# AWS WAF Rule Group Template #}
+{# Variables: name, rules, description, capacity, tags, sanitize_name (function) #}
+
+resource "aws_wafv2_rule_group" "{{ sanitize_name(name) }}" {
+  name        = "{{ name | escape }}"
+  description = "{{ description | default('Blastauri WAF rule group') | escape }}"
+  scope       = var.waf_scope
+  capacity    = {{ capacity }}
+
+{% for rule in rules %}
+{% include 'aws_rule.tf.j2' %}
+{% endfor %}
+
+  visibility_config {
+    cloudwatch_metrics_enabled = true
+    metric_name                = "{{ sanitize_name(name) }}"
+    sampled_requests_enabled   = true
+  }
+
+  tags = {
+{% for key, value in tags.items() %}
+    {{ key }} = "{{ value | escape }}"
+{% endfor %}
+  }
+}

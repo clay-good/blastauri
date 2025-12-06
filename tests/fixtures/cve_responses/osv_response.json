@@ -1,0 +1,54 @@
+{
+  "vulns": [
+    {
+      "id": "GHSA-jfh8-c2jp-5v3q",
+      "summary": "Remote code injection in Log4j",
+      "details": "Apache Log4j2 <=2.14.1 JNDI features used in configuration, log messages, and parameters do not protect against attacker-controlled LDAP and other JNDI related endpoints.",
+      "aliases": [
+        "CVE-2021-44228"
+      ],
+      "modified": "2023-11-08T04:07:17.572644Z",
+      "published": "2021-12-10T00:40:56Z",
+      "database_specific": {
+        "severity": "CRITICAL"
+      },
+      "references": [
+        {
+          "type": "ADVISORY",
+          "url": "https://nvd.nist.gov/vuln/detail/CVE-2021-44228"
+        },
+        {
+          "type": "WEB",
+          "url": "https://logging.apache.org/log4j/2.x/security.html"
+        }
+      ],
+      "affected": [
+        {
+          "package": {
+            "ecosystem": "Maven",
+            "name": "org.apache.logging.log4j:log4j-core"
+          },
+          "ranges": [
+            {
+              "type": "ECOSYSTEM",
+              "events": [
+                {
+                  "introduced": "2.0-beta9"
+                },
+                {
+                  "fixed": "2.17.0"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "severity": [
+        {
+          "type": "CVSS_V3",
+          "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H"
+        }
+      ]
+    }
+  ]
+}
