@@ -3,7 +3,6 @@
 import re
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
 
 import httpx
 
@@ -27,7 +26,7 @@ class ChangelogEntry:
     """A single changelog entry."""
 
     version: str
-    date: Optional[str]
+    date: str | None
     content: str
     source: ChangelogSource
 
@@ -85,7 +84,7 @@ API_EXTRACTION_PATTERNS = [
 class ChangelogParser:
     """Parser for extracting breaking changes from changelogs."""
 
-    def __init__(self, http_client: Optional[httpx.AsyncClient] = None):
+    def __init__(self, http_client: httpx.AsyncClient | None = None):
         """Initialize the changelog parser.
 
         Args:
@@ -162,7 +161,7 @@ class ChangelogParser:
         lines = text.split("\n")
         sections: list[tuple[str, int, int]] = []  # (version, start_idx, end_idx)
 
-        current_version: Optional[str] = None
+        current_version: str | None = None
         current_start: int = 0
 
         for i, line in enumerate(lines):
@@ -285,7 +284,7 @@ class ChangelogParser:
 
         return breaking_changes
 
-    def _extract_api_names(self, text: str) -> tuple[Optional[str], Optional[str]]:
+    def _extract_api_names(self, text: str) -> tuple[str | None, str | None]:
         """Extract old and new API names from text.
 
         Args:
@@ -316,7 +315,7 @@ class ChangelogParser:
             return unique_apis[0], None
         return None, None
 
-    def _extract_migration_guide(self, text: str) -> Optional[str]:
+    def _extract_migration_guide(self, text: str) -> str | None:
         """Extract migration guide from text.
 
         Args:

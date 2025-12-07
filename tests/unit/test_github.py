@@ -1,19 +1,12 @@
 """Tests for GitHub integration and Dependabot PR analysis."""
 
 from datetime import datetime
-from unittest.mock import MagicMock, patch
 
 import pytest
 
 from blastauri.core.models import (
-    AnalysisReport,
-    BreakingChange,
-    BreakingChangeType,
-    CVE,
     DependencyUpdate,
     Ecosystem,
-    Severity,
-    UpgradeImpact,
 )
 from blastauri.git.dependabot_parser import (
     BotType,

@@ -55,18 +55,18 @@ from blastauri.git.mr_analyzer import (
     MergeRequestAnalyzer,
     analyze_renovate_mr,
 )
-from blastauri.git.pr_analyzer import (
-    PRAnalysisConfig,
-    PRAnalysisResult,
-    PullRequestAnalyzer,
-    analyze_github_pr,
-)
 from blastauri.git.mr_creator import (
     FileChange,
     MrCreationConfig,
     MrCreationResult,
     MrCreator,
     WafMrCreator,
+)
+from blastauri.git.pr_analyzer import (
+    PRAnalysisConfig,
+    PRAnalysisResult,
+    PullRequestAnalyzer,
+    analyze_github_pr,
 )
 from blastauri.git.renovate_parser import (
     RenovateMRInfo,

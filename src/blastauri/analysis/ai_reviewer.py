@@ -3,18 +3,13 @@
 import asyncio
 import json
 import shutil
-import subprocess
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Optional
 
 from blastauri.core.models import (
-    BreakingChange,
-    Ecosystem,
     ImpactedLocation,
-    Severity,
     UpgradeImpact,
 )
 
@@ -36,7 +31,7 @@ class AIReviewResult:
     recommendations: list[str] = field(default_factory=list)
     additional_concerns: list[str] = field(default_factory=list)
     suggested_fixes: dict[str, str] = field(default_factory=dict)  # file_path -> fix
-    raw_response: Optional[str] = None
+    raw_response: str | None = None
 
 
 class BaseAIReviewer(ABC):
@@ -81,14 +76,14 @@ class BaseAIReviewer(ABC):
             Formatted context string.
         """
         parts = [
-            f"# Dependency Upgrade Analysis",
-            f"",
+            "# Dependency Upgrade Analysis",
+            "",
             f"## Package: {upgrade.dependency_name}",
             f"- Ecosystem: {upgrade.ecosystem.value}",
             f"- Version change: {upgrade.from_version} -> {upgrade.to_version}",
             f"- Major upgrade: {'Yes' if upgrade.is_major_upgrade else 'No'}",
             f"- Risk score: {upgrade.risk_score}/100 ({upgrade.severity.value})",
-            f"",
+            "",
         ]
 
         if upgrade.breaking_changes:
@@ -184,7 +179,7 @@ class ClaudeReviewer(BaseAIReviewer):
             model: Claude model to use.
         """
         self._model = model
-        self._cli_path: Optional[str] = None
+        self._cli_path: str | None = None
 
     def is_available(self) -> bool:
         """Check if Claude CLI is available."""
@@ -309,7 +304,7 @@ class AugmentReviewer(BaseAIReviewer):
 
     def __init__(self):
         """Initialize Augment reviewer."""
-        self._cli_path: Optional[str] = None
+        self._cli_path: str | None = None
 
     def is_available(self) -> bool:
         """Check if Augment CLI is available."""

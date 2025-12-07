@@ -1,10 +1,7 @@
 """GitHub pull request analyzer orchestrating all analysis components."""
 
-import asyncio
 from dataclasses import dataclass, field
-from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 from blastauri.analysis.ai_reviewer import AIProvider, ai_review_upgrade
 from blastauri.analysis.api_diff import ApiDiffAnalyzer
@@ -18,20 +15,19 @@ from blastauri.analysis.known_breaking_changes import get_known_breaking_changes
 from blastauri.analysis.package_metadata import PackageMetadataAnalyzer
 from blastauri.analysis.usage_finder import UsageFinder
 from blastauri.core.models import (
+    CVE,
     AnalysisReport,
     BreakingChange,
-    CVE,
     DependencyUpdate,
-    Ecosystem,
     ImpactedLocation,
     Severity,
     UpgradeImpact,
 )
 from blastauri.cve.aggregator import CveAggregator
 from blastauri.cve.waf_patterns import get_waf_pattern_id, is_waf_mitigatable
-from blastauri.git.comment_generator import CommentConfig, CommentGenerator
+from blastauri.git.comment_generator import CommentGenerator
 from blastauri.git.dependabot_parser import DependabotParser, DependencyPRInfo
-from blastauri.git.github_client import GitHubClient, PullRequestInfo
+from blastauri.git.github_client import GitHubClient
 from blastauri.git.label_manager import determine_labels_for_analysis
 
 
@@ -69,12 +65,12 @@ class PRAnalysisResult:
     """Result of PR analysis."""
 
     report: AnalysisReport
-    comment_body: Optional[str] = None
+    comment_body: str | None = None
     labels_added: list[str] = field(default_factory=list)
     labels_removed: list[str] = field(default_factory=list)
-    ai_review: Optional[str] = None
+    ai_review: str | None = None
     should_fail: bool = False
-    error: Optional[str] = None
+    error: str | None = None
 
 
 class PullRequestAnalyzer:
@@ -83,7 +79,7 @@ class PullRequestAnalyzer:
     def __init__(
         self,
         github_client: GitHubClient,
-        config: Optional[PRAnalysisConfig] = None,
+        config: PRAnalysisConfig | None = None,
     ):
         """Initialize the PR analyzer.
 
@@ -103,7 +99,7 @@ class PullRequestAnalyzer:
         self,
         repo_full_name: str,
         pr_number: int,
-        repository_path: Optional[Path] = None,
+        repository_path: Path | None = None,
     ) -> PRAnalysisResult:
         """Analyze a pull request.
 
@@ -229,7 +225,7 @@ class PullRequestAnalyzer:
     async def _analyze_update(
         self,
         update: DependencyUpdate,
-        repository_path: Optional[Path],
+        repository_path: Path | None,
     ) -> UpgradeImpact:
         """Analyze a single dependency update.
 
@@ -571,9 +567,9 @@ class PullRequestAnalyzer:
 async def analyze_github_pr(
     repo_full_name: str,
     pr_number: int,
-    github_token: Optional[str] = None,
-    repository_path: Optional[Path] = None,
-    config: Optional[PRAnalysisConfig] = None,
+    github_token: str | None = None,
+    repository_path: Path | None = None,
+    config: PRAnalysisConfig | None = None,
 ) -> PRAnalysisResult:
     """Convenience function to analyze a GitHub PR.
 

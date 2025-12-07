@@ -2,7 +2,6 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -53,7 +52,7 @@ class Dependency(BaseModel):
     location: str = Field(..., description="Path to the lockfile containing this dependency")
     is_dev: bool = Field(default=False, description="Whether this is a development dependency")
     is_direct: bool = Field(default=True, description="Whether this is a direct dependency")
-    parent: Optional[str] = Field(default=None, description="Parent package if transitive")
+    parent: str | None = Field(default=None, description="Parent package if transitive")
 
 
 class ScanResult(BaseModel):
@@ -71,9 +70,9 @@ class AffectedPackage(BaseModel):
 
     ecosystem: Ecosystem
     name: str
-    version_start: Optional[str] = None
-    version_end: Optional[str] = None
-    fixed_version: Optional[str] = None
+    version_start: str | None = None
+    version_end: str | None = None
+    fixed_version: str | None = None
 
 
 class CVE(BaseModel):
@@ -82,15 +81,15 @@ class CVE(BaseModel):
     id: str = Field(..., description="CVE identifier (e.g., CVE-2021-44228)")
     description: str = Field(..., description="Vulnerability description")
     severity: Severity = Field(default=Severity.UNKNOWN)
-    cvss_score: Optional[float] = Field(default=None, ge=0.0, le=10.0)
-    cvss_vector: Optional[str] = None
+    cvss_score: float | None = Field(default=None, ge=0.0, le=10.0)
+    cvss_vector: str | None = None
     affected_packages: list[AffectedPackage] = Field(default_factory=list)
     references: list[str] = Field(default_factory=list)
-    published_date: Optional[datetime] = None
-    modified_date: Optional[datetime] = None
+    published_date: datetime | None = None
+    modified_date: datetime | None = None
     source: str = Field(..., description="Source of CVE data (nvd, github, osv, gitlab)")
     is_waf_mitigatable: bool = Field(default=False)
-    waf_pattern_id: Optional[str] = None
+    waf_pattern_id: str | None = None
 
 
 class BreakingChange(BaseModel):
@@ -98,9 +97,9 @@ class BreakingChange(BaseModel):
 
     change_type: BreakingChangeType
     description: str
-    old_api: Optional[str] = None
-    new_api: Optional[str] = None
-    migration_guide: Optional[str] = None
+    old_api: str | None = None
+    new_api: str | None = None
+    migration_guide: str | None = None
     source: str = Field(..., description="Source of breaking change info (changelog, release notes)")
 
 
@@ -121,7 +120,7 @@ class ImpactedLocation(BaseModel):
     location: UsageLocation
     breaking_change: BreakingChange
     confidence: float = Field(..., ge=0.0, le=1.0)
-    suggested_fix: Optional[str] = None
+    suggested_fix: str | None = None
 
 
 class UpgradeImpact(BaseModel):
@@ -169,7 +168,7 @@ class WafRule(BaseModel):
     cve_ids: list[str] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     mode: str = Field(default="log", description="Rule mode (log, block)")
-    triggered_by: Optional[Dependency] = None
+    triggered_by: Dependency | None = None
     status: str = Field(default="active", description="Rule status (active, obsolete, promoted)")
 
 
@@ -186,7 +185,7 @@ class CVEEntry(BaseModel):
 
     cve_id: str = Field(..., description="CVE identifier (e.g., CVE-2021-44228)")
     severity: Severity = Field(default=Severity.UNKNOWN)
-    cvss_score: Optional[float] = Field(default=None, ge=0.0, le=10.0)
+    cvss_score: float | None = Field(default=None, ge=0.0, le=10.0)
     description: str = ""
     is_waf_mitigatable: bool = False
 

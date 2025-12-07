@@ -1,16 +1,13 @@
 """Tests for CVE intelligence module."""
 
-import json
-import tempfile
 from datetime import datetime
 from pathlib import Path
 
 import pytest
 
-from blastauri.core.models import AffectedPackage, CVE, Ecosystem, Severity
+from blastauri.core.models import CVE, AffectedPackage, Ecosystem, Severity
 from blastauri.cve.cache import CveCache
 from blastauri.cve.waf_patterns import (
-    WafPattern,
     get_all_patterns,
     get_waf_pattern,
     get_waf_pattern_id,

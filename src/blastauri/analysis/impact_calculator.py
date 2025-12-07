@@ -1,12 +1,11 @@
 """Impact calculator for computing upgrade risk scores."""
 
 from dataclasses import dataclass
-from typing import Optional
 
 from blastauri.core.models import (
+    CVE,
     BreakingChange,
     BreakingChangeType,
-    CVE,
     Ecosystem,
     ImpactedLocation,
     Severity,
@@ -56,7 +55,7 @@ class BreakingChangeSeverity:
 class ImpactCalculator:
     """Calculates risk scores and severity for dependency upgrades."""
 
-    def __init__(self, weights: Optional[RiskScoreWeights] = None):
+    def __init__(self, weights: RiskScoreWeights | None = None):
         """Initialize the impact calculator.
 
         Args:

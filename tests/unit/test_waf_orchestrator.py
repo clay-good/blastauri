@@ -1,9 +1,7 @@
 """Tests for WAF orchestrator module."""
 
 import tempfile
-from datetime import datetime
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -13,7 +11,6 @@ from blastauri.core.waf_orchestrator import (
     WafSyncOrchestrator,
     WafSyncResult,
 )
-from blastauri.waf.lifecycle import WafRuleState, WafState
 from blastauri.waf.providers.base import WafProviderType, WafRuleMode
 
 
@@ -27,7 +24,6 @@ class TestWafSyncConfig:
         assert config.provider == WafProviderType.AWS
         assert config.mode == WafRuleMode.LOG
         assert config.output_dir == "./terraform/waf"
-        assert config.state_dir == ".blastauri"
         assert config.promotion_days == 14
         assert config.name_prefix == "blastauri"
 
@@ -37,7 +33,6 @@ class TestWafSyncConfig:
             provider=WafProviderType.CLOUDFLARE,
             mode=WafRuleMode.BLOCK,
             output_dir="./custom/waf",
-            state_dir=".custom",
             promotion_days=7,
             name_prefix="custom",
         )
@@ -45,7 +40,6 @@ class TestWafSyncConfig:
         assert config.provider == WafProviderType.CLOUDFLARE
         assert config.mode == WafRuleMode.BLOCK
         assert config.output_dir == "./custom/waf"
-        assert config.state_dir == ".custom"
         assert config.promotion_days == 7
         assert config.name_prefix == "custom"
 
@@ -57,45 +51,43 @@ class TestWafSyncResult:
         """Test creating a sync result."""
         result = WafSyncResult(
             success=True,
-            rules_created=5,
-            rules_updated=2,
-            rules_removed=1,
-            rules_promoted=3,
+            analysis=None,
             terraform_files=["main.tf", "variables.tf"],
+            mr_created=True,
             mr_url="https://gitlab.com/test/-/merge_requests/123",
-            warnings=["Minor warning"],
+            new_state=None,
             errors=[],
+            summary="WAF sync complete",
         )
 
         assert result.success is True
-        assert result.rules_created == 5
-        assert result.rules_updated == 2
-        assert result.rules_removed == 1
-        assert result.rules_promoted == 3
         assert len(result.terraform_files) == 2
         assert result.mr_url is not None
-        assert len(result.warnings) == 1
         assert len(result.errors) == 0
 
-    def test_result_defaults(self) -> None:
-        """Test result default values."""
-        result = WafSyncResult(success=True)
+    def test_result_with_errors(self) -> None:
+        """Test result with errors."""
+        result = WafSyncResult(
+            success=False,
+            analysis=None,
+            terraform_files=[],
+            mr_created=False,
+            mr_url=None,
+            new_state=None,
+            errors=["Error 1", "Error 2"],
+            summary="WAF sync failed",
+        )
 
-        assert result.rules_created == 0
-        assert result.rules_updated == 0
-        assert result.rules_removed == 0
-        assert result.rules_promoted == 0
-        assert result.terraform_files == []
-        assert result.mr_url is None
-        assert result.warnings == []
-        assert result.errors == []
+        assert result.success is False
+        assert result.mr_created is False
+        assert len(result.errors) == 2
 
 
 class TestWafSyncOrchestrator:
     """Tests for WafSyncOrchestrator."""
 
     @pytest.fixture
-    def temp_dir(self) -> Path:
+    def temp_dir(self):
         """Create a temporary directory."""
         with tempfile.TemporaryDirectory() as tmpdir:
             yield Path(tmpdir)
@@ -105,9 +97,8 @@ class TestWafSyncOrchestrator:
         """Create orchestrator instance."""
         config = WafSyncConfig(
             output_dir=str(temp_dir / "waf"),
-            state_dir=str(temp_dir / ".blastauri"),
         )
-        return WafSyncOrchestrator(config)
+        return WafSyncOrchestrator(str(temp_dir), config)
 
     @pytest.fixture
     def sample_dependencies(self) -> list:
@@ -149,10 +140,11 @@ class TestWafSyncOrchestrator:
             ),
         ]
 
-    def test_orchestrator_creation(self, orchestrator: WafSyncOrchestrator) -> None:
+    def test_orchestrator_creation(self, temp_dir: Path) -> None:
         """Test orchestrator creation."""
-        assert orchestrator.config is not None
-        assert orchestrator.config.provider == WafProviderType.AWS
+        config = WafSyncConfig()
+        orchestrator = WafSyncOrchestrator(str(temp_dir), config)
+        assert orchestrator is not None
 
     def test_get_status_empty(self, orchestrator: WafSyncOrchestrator) -> None:
         """Test getting status with no state."""
@@ -160,9 +152,6 @@ class TestWafSyncOrchestrator:
 
         assert "total_rules" in status
         assert status["total_rules"] == 0
-        assert "rules_in_log_mode" in status
-        assert "rules_in_block_mode" in status
-        assert "promotion_candidates" in status
 
     @pytest.mark.asyncio
     async def test_sync_no_cves(
@@ -176,7 +165,6 @@ class TestWafSyncOrchestrator:
         )
 
         assert result.success is True
-        assert result.rules_created == 0
 
     @pytest.mark.asyncio
     async def test_sync_with_cves(
@@ -193,7 +181,6 @@ class TestWafSyncOrchestrator:
         )
 
         assert result.success is True
-        assert result.rules_created >= 0
 
     @pytest.mark.asyncio
     async def test_sync_with_fixed_versions(
@@ -215,19 +202,12 @@ class TestWafSyncOrchestrator:
 
         assert result.success is True
 
-    def test_config_serialization(self, orchestrator: WafSyncOrchestrator) -> None:
-        """Test that config can be accessed."""
-        config = orchestrator.config
-
-        assert config.provider in [WafProviderType.AWS, WafProviderType.CLOUDFLARE]
-        assert config.mode in [WafRuleMode.LOG, WafRuleMode.BLOCK]
-
 
 class TestWafSyncIntegration:
     """Integration tests for WAF sync."""
 
     @pytest.fixture
-    def temp_project(self) -> Path:
+    def temp_project(self):
         """Create a temporary project directory."""
         with tempfile.TemporaryDirectory() as tmpdir:
             project = Path(tmpdir)
@@ -244,10 +224,9 @@ class TestWafSyncIntegration:
         """Test full WAF sync workflow."""
         config = WafSyncConfig(
             output_dir=str(temp_project / "terraform" / "waf"),
-            state_dir=str(temp_project / ".blastauri"),
         )
 
-        orchestrator = WafSyncOrchestrator(config)
+        orchestrator = WafSyncOrchestrator(str(temp_project), config)
 
         # Initial status
         status = orchestrator.get_status()
@@ -257,10 +236,9 @@ class TestWafSyncIntegration:
         """Test that output directories are created as needed."""
         config = WafSyncConfig(
             output_dir=str(temp_project / "new" / "terraform" / "waf"),
-            state_dir=str(temp_project / ".blastauri"),
         )
 
-        orchestrator = WafSyncOrchestrator(config)
+        orchestrator = WafSyncOrchestrator(str(temp_project), config)
         assert orchestrator is not None
 
 

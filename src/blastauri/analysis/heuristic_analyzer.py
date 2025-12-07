@@ -12,12 +12,7 @@ Heuristics used:
 """
 
 import re
-import tarfile
-import zipfile
 from dataclasses import dataclass
-from io import BytesIO
-from pathlib import Path
-from typing import Optional
 
 import httpx
 
@@ -58,7 +53,7 @@ class HeuristicAnalyzer:
     FILE_REDUCTION_THRESHOLD = 0.2  # 20% fewer files
     EXPORT_REDUCTION_THRESHOLD = 0.15  # 15% fewer exports
 
-    def __init__(self, http_client: Optional[httpx.AsyncClient] = None):
+    def __init__(self, http_client: httpx.AsyncClient | None = None):
         """Initialize the analyzer."""
         self._http_client = http_client
         self._owns_client = False
@@ -176,7 +171,7 @@ class HeuristicAnalyzer:
 
         return changes
 
-    def _parse_version(self, version: str) -> Optional[tuple[int, int, int]]:
+    def _parse_version(self, version: str) -> tuple[int, int, int] | None:
         """Parse version string to (major, minor, patch) tuple."""
         # Remove common prefixes
         version = re.sub(r"^[v=]", "", version.strip())
@@ -280,7 +275,7 @@ class HeuristicAnalyzer:
         self,
         package_name: str,
         version: str,
-    ) -> Optional[PackageStats]:
+    ) -> PackageStats | None:
         """Get statistics for an npm package version."""
         if not self._http_client:
             return None

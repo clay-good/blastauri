@@ -4,12 +4,10 @@ This module orchestrates WAF rule generation from CVE analysis results,
 combining rule templates with provider-specific Terraform generation.
 """
 
-import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
 
-from blastauri.core.models import CVE, CVEAnalysisResult
+from blastauri.core.models import CVEAnalysisResult
 from blastauri.waf.providers.aws import AwsWafProvider
 from blastauri.waf.providers.base import (
     BaseWafProvider,
@@ -39,7 +37,7 @@ class WafGeneratorConfig:
     name_prefix: str = "blastauri"
     include_owasp: bool = False
     include_critical_only: bool = False
-    output_dir: Optional[str] = None
+    output_dir: str | None = None
     custom_templates: list[RuleTemplate] = field(default_factory=list)
     tags: dict[str, str] = field(default_factory=dict)
 
@@ -65,8 +63,8 @@ class WafGenerator:
 
     def __init__(
         self,
-        config: Optional[WafGeneratorConfig] = None,
-        registry: Optional[RuleTemplateRegistry] = None,
+        config: WafGeneratorConfig | None = None,
+        registry: RuleTemplateRegistry | None = None,
     ) -> None:
         """Initialize the WAF generator.
 
@@ -450,7 +448,7 @@ def generate_waf_rules(
     cve_ids: list[str],
     provider: WafProviderType = WafProviderType.AWS,
     mode: WafRuleMode = WafRuleMode.LOG,
-    output_dir: Optional[str] = None,
+    output_dir: str | None = None,
     name_prefix: str = "blastauri",
 ) -> GenerationResult:
     """Convenience function to generate WAF rules for CVEs.
@@ -479,7 +477,7 @@ def generate_waf_rules(
 def generate_owasp_rules(
     provider: WafProviderType = WafProviderType.AWS,
     mode: WafRuleMode = WafRuleMode.LOG,
-    output_dir: Optional[str] = None,
+    output_dir: str | None = None,
     name_prefix: str = "blastauri",
 ) -> GenerationResult:
     """Convenience function to generate OWASP protection rules.

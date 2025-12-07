@@ -24,6 +24,12 @@ from blastauri.analysis.ai_reviewer import (
     ai_review_upgrade,
     get_ai_reviewer,
 )
+from blastauri.analysis.api_diff import (
+    ApiDiff,
+    ApiDiffAnalyzer,
+    ApiExport,
+    analyze_api_diff,
+)
 from blastauri.analysis.changelog_parser import (
     ChangelogEntry,
     ChangelogParser,
@@ -38,12 +44,31 @@ from blastauri.analysis.fix_generator import (
     generate_fixes,
     generate_migration_guide,
 )
+from blastauri.analysis.heuristic_analyzer import (
+    HeuristicAnalyzer,
+    HeuristicResult,
+    PackageStats,
+    analyze_with_heuristics,
+)
 from blastauri.analysis.impact_calculator import (
     BreakingChangeSeverity,
     ImpactCalculator,
     RiskScoreWeights,
     calculate_risk_score,
     classify_severity,
+)
+from blastauri.analysis.known_breaking_changes import (
+    KnownBreakingChange,
+    get_all_packages_with_known_changes,
+    get_known_breaking_changes,
+)
+from blastauri.analysis.package_metadata import (
+    MaintenanceStatus,
+    PackageMetadata,
+    PackageMetadataAnalyzer,
+    PackageSignal,
+    RiskSignal,
+    analyze_package_metadata,
 )
 from blastauri.analysis.static_analyzer import (
     BaseLanguageAnalyzer,
@@ -60,31 +85,6 @@ from blastauri.analysis.usage_finder import (
     UsageFinder,
     find_dependency_usages,
     find_impacted_code,
-)
-from blastauri.analysis.api_diff import (
-    ApiDiff,
-    ApiDiffAnalyzer,
-    ApiExport,
-    analyze_api_diff,
-)
-from blastauri.analysis.known_breaking_changes import (
-    KnownBreakingChange,
-    get_all_packages_with_known_changes,
-    get_known_breaking_changes,
-)
-from blastauri.analysis.package_metadata import (
-    MaintenanceStatus,
-    PackageMetadata,
-    PackageMetadataAnalyzer,
-    PackageSignal,
-    RiskSignal,
-    analyze_package_metadata,
-)
-from blastauri.analysis.heuristic_analyzer import (
-    HeuristicAnalyzer,
-    HeuristicResult,
-    PackageStats,
-    analyze_with_heuristics,
 )
 
 __all__ = [

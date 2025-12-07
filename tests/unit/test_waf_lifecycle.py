@@ -1,28 +1,23 @@
 """Tests for WAF lifecycle management module."""
 
-import json
 import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
 
-from blastauri.core.models import Dependency, Ecosystem, Severity
 from blastauri.core.waf_orchestrator import (
     WafSyncConfig,
     WafSyncOrchestrator,
-    WafSyncResult,
 )
 from blastauri.git.mr_creator import (
     FileChange,
     MrCreationConfig,
-    MrCreationResult,
     MrCreator,
     WafMrCreator,
 )
 from blastauri.waf.lifecycle import (
     LifecycleAnalysis,
-    LifecycleChange,
     RuleTrigger,
     WafLifecycleManager,
     WafRuleState,

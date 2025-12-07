@@ -6,7 +6,6 @@ from pathlib import Path
 import pytest
 
 from blastauri.waf.generator import (
-    GenerationResult,
     WafGenerator,
     WafGeneratorConfig,
     generate_owasp_rules,
@@ -384,7 +383,8 @@ class TestCloudflareWafProvider:
         )
 
         assert "~" in expr
-        assert "${jndi:" in expr
+        # Pattern is escaped for wirefilter - check contains jndi
+        assert "jndi:" in expr
 
     def test_generate_exact_expression_single(
         self, provider: CloudflareWafProvider

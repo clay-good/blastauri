@@ -17,6 +17,14 @@ from blastauri.waf.generator import (
     generate_owasp_rules,
     generate_waf_rules,
 )
+from blastauri.waf.lifecycle import (
+    LifecycleAnalysis,
+    LifecycleChange,
+    RuleTrigger,
+    WafLifecycleManager,
+    WafRuleState,
+    WafState,
+)
 from blastauri.waf.providers.aws import AwsWafProvider
 from blastauri.waf.providers.base import (
     BaseWafProvider,
@@ -29,14 +37,6 @@ from blastauri.waf.providers.base import (
     WafScope,
 )
 from blastauri.waf.providers.cloudflare import CloudflareWafProvider
-from blastauri.waf.lifecycle import (
-    LifecycleAnalysis,
-    LifecycleChange,
-    RuleTrigger,
-    WafLifecycleManager,
-    WafRuleState,
-    WafState,
-)
 from blastauri.waf.rule_templates import (
     AttackCategory,
     RuleTemplate,

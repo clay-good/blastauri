@@ -11,17 +11,15 @@ Coordinates the full WAF synchronization workflow:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
-from blastauri.core.models import CVE, Dependency, ScanResult
+from blastauri.core.models import CVE, Dependency
 from blastauri.waf.lifecycle import (
     LifecycleAnalysis,
-    LifecycleChange,
     WafLifecycleManager,
-    WafRuleState,
     WafState,
 )
 from blastauri.waf.providers.base import WafProviderType, WafRuleMode
@@ -29,8 +27,6 @@ from blastauri.waf.providers.base import WafProviderType, WafRuleMode
 if TYPE_CHECKING:
     from blastauri.waf.generator import (
         GenerationResult,
-        WafGenerator,
-        WafGeneratorConfig,
     )
 
 
@@ -52,11 +48,11 @@ class WafSyncResult:
     """Result of WAF sync operation."""
 
     success: bool
-    analysis: Optional[LifecycleAnalysis]
+    analysis: LifecycleAnalysis | None
     terraform_files: list[str]
     mr_created: bool
-    mr_url: Optional[str]
-    new_state: Optional[WafState]
+    mr_url: str | None
+    new_state: WafState | None
     errors: list[str]
     summary: str
 
@@ -71,7 +67,7 @@ class WafSyncOrchestrator:
     def __init__(
         self,
         repo_path: str,
-        config: Optional[WafSyncConfig] = None,
+        config: WafSyncConfig | None = None,
     ) -> None:
         """Initialize the orchestrator.
 
@@ -92,8 +88,8 @@ class WafSyncOrchestrator:
         dependencies: list[Dependency],
         cves: list[CVE],
         fixed_versions: dict[str, str],
-        git_client: Optional[object] = None,
-        project_id: Optional[str] = None,
+        git_client: object | None = None,
+        project_id: str | None = None,
     ) -> WafSyncResult:
         """Execute full WAF sync workflow.
 
@@ -509,7 +505,7 @@ class WafSyncOrchestrator:
         analysis: LifecycleAnalysis,
         terraform_files: list[str],
         mr_created: bool,
-        mr_url: Optional[str],
+        mr_url: str | None,
     ) -> str:
         """Generate sync operation summary.
 

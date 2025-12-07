@@ -17,7 +17,6 @@ This file serves as both documentation and runtime verification.
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Optional
 
 
 class OperationType(str, Enum):
@@ -112,7 +111,7 @@ class SafetyGuard:
     def check_operation(
         self,
         operation: OperationType,
-        target_branch: Optional[str] = None,
+        target_branch: str | None = None,
     ) -> SafetyCheck:
         """Check if an operation is allowed.
 
@@ -207,7 +206,7 @@ class SafetyGuard:
             operation=OperationType.CREATE_MR_BRANCH,
         )
 
-    def check_file_path(self, file_path: str, repository_root: Optional[str] = None) -> SafetyCheck:
+    def check_file_path(self, file_path: str, repository_root: str | None = None) -> SafetyCheck:
         """Check if a file path is safe to write (WAF operations).
 
         Blastauri only writes WAF-related files.
@@ -262,7 +261,7 @@ class SafetyGuard:
 
 
 # Global safety guard instance
-_safety_guard: Optional[SafetyGuard] = None
+_safety_guard: SafetyGuard | None = None
 
 
 def get_safety_guard() -> SafetyGuard:
@@ -275,7 +274,7 @@ def get_safety_guard() -> SafetyGuard:
 
 def assert_operation_allowed(
     operation: OperationType,
-    target_branch: Optional[str] = None,
+    target_branch: str | None = None,
 ) -> None:
     """Assert that an operation is allowed, raise if not.
 

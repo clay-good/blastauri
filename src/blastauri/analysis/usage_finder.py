@@ -2,7 +2,6 @@
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
 
 from blastauri.analysis.static_analyzer import ImportInfo, StaticAnalyzer
 from blastauri.core.models import (
@@ -50,8 +49,8 @@ class UsageFinder:
 
     def __init__(
         self,
-        static_analyzer: Optional[StaticAnalyzer] = None,
-        exclude_patterns: Optional[list[str]] = None,
+        static_analyzer: StaticAnalyzer | None = None,
+        exclude_patterns: list[str] | None = None,
     ):
         """Initialize the usage finder.
 
@@ -68,7 +67,7 @@ class UsageFinder:
         directory: Path,
         ecosystem: Ecosystem,
         package_name: str,
-        symbols: Optional[list[str]] = None,
+        symbols: list[str] | None = None,
     ) -> PackageUsageReport:
         """Find all usage of a package in a directory.
 
@@ -193,7 +192,7 @@ class UsageFinder:
 
         return impacted
 
-    def _extract_symbol_name(self, api_ref: str) -> Optional[str]:
+    def _extract_symbol_name(self, api_ref: str) -> str | None:
         """Extract a symbol name from an API reference.
 
         Args:
@@ -302,7 +301,7 @@ class UsageFinder:
         self,
         usage: UsageLocation,
         change: BreakingChange,
-    ) -> Optional[str]:
+    ) -> str | None:
         """Generate a quick fix suggestion.
 
         Args:
@@ -335,7 +334,7 @@ def find_dependency_usages(
     directory: Path,
     ecosystem: Ecosystem,
     package_name: str,
-    exclude_patterns: Optional[list[str]] = None,
+    exclude_patterns: list[str] | None = None,
 ) -> PackageUsageReport:
     """Convenience function to find dependency usages.
 
@@ -357,7 +356,7 @@ def find_impacted_code(
     ecosystem: Ecosystem,
     package_name: str,
     breaking_changes: list[BreakingChange],
-    exclude_patterns: Optional[list[str]] = None,
+    exclude_patterns: list[str] | None = None,
 ) -> list[ImpactedLocation]:
     """Convenience function to find impacted code locations.
 

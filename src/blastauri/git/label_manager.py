@@ -1,7 +1,6 @@
 """Label manager for merge request severity labeling."""
 
 from dataclasses import dataclass
-from typing import Optional
 
 from blastauri.core.models import Severity
 from blastauri.git.gitlab_client import GitLabClient, ProjectLabel
@@ -229,7 +228,7 @@ class LabelManager:
     def get_severity_from_labels(
         self,
         labels: list[str],
-    ) -> Optional[Severity]:
+    ) -> Severity | None:
         """Determine severity from existing labels.
 
         Args:

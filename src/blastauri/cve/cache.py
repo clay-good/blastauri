@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from blastauri.core.models import AffectedPackage, CVE, Ecosystem, Severity
+from blastauri.core.models import CVE, AffectedPackage, Ecosystem, Severity
 from blastauri.utils.logging import get_logger
 
 logger = get_logger(__name__)

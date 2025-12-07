@@ -1,16 +1,14 @@
 """Tests for GitLab integration and Renovate MR analysis."""
 
 from datetime import datetime
-from unittest.mock import MagicMock, patch
 
 import pytest
 
 from blastauri.core.models import (
+    CVE,
     AnalysisReport,
     BreakingChange,
     BreakingChangeType,
-    CVE,
-    DependencyUpdate,
     Ecosystem,
     ImpactedLocation,
     Severity,
@@ -29,11 +27,9 @@ from blastauri.git.gitlab_client import (
 from blastauri.git.label_manager import (
     BLASTAURI_LABELS,
     SECURITY_LABELS,
-    LabelDefinition,
     determine_labels_for_analysis,
 )
 from blastauri.git.renovate_parser import (
-    RenovateMRInfo,
     RenovateParser,
     UpdateType,
     is_renovate_branch,

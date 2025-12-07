@@ -3,7 +3,6 @@
 import re
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
 
 from blastauri.core.models import DependencyUpdate, Ecosystem
 from blastauri.git.github_client import PullRequestFile, PullRequestInfo
@@ -26,7 +25,7 @@ class DependencyPRInfo:
     updates: list[DependencyUpdate] = field(default_factory=list)
     is_security_update: bool = False
     is_grouped: bool = False
-    group_name: Optional[str] = None
+    group_name: str | None = None
     branch_name: str = ""
 
 
@@ -167,7 +166,7 @@ class DependabotParser:
     def parse_pr(
         self,
         pr: PullRequestInfo,
-        files: Optional[list[PullRequestFile]] = None,
+        files: list[PullRequestFile] | None = None,
     ) -> DependencyPRInfo:
         """Parse a dependency update PR.
 
@@ -449,7 +448,7 @@ class DependabotParser:
 
         return False
 
-    def _extract_group_name(self, branch: str) -> Optional[str]:
+    def _extract_group_name(self, branch: str) -> str | None:
         """Extract group name from branch."""
         # Remove prefix
         for prefix in DEPENDABOT_BRANCH_PREFIXES + RENOVATE_BRANCH_PREFIXES:
@@ -481,7 +480,7 @@ class DependabotParser:
 
 def parse_dependency_pr(
     pr: PullRequestInfo,
-    files: Optional[list[PullRequestFile]] = None,
+    files: list[PullRequestFile] | None = None,
 ) -> DependencyPRInfo:
     """Convenience function to parse a dependency PR.
 

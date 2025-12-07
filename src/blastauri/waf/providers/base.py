@@ -3,9 +3,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
-
-from blastauri.core.models import CVE
 
 
 class WafProviderType(str, Enum):
@@ -53,7 +50,7 @@ class WafRuleStatement:
     """A WAF rule statement/condition."""
 
     field_type: str  # header, body, uri, query_string
-    field_name: Optional[str] = None  # For headers
+    field_name: str | None = None  # For headers
     match_type: str = "contains"  # contains, regex, exact
     patterns: list[str] = field(default_factory=list)
     transformations: list[str] = field(default_factory=list)  # lowercase, url_decode

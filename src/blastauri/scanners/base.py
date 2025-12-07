@@ -63,13 +63,13 @@ class BaseScanner(ABC):
 
     def scan_directory(
         self,
-        directory: Path,
+        directory: str | Path,
         exclude_patterns: list[str] | None = None,
     ) -> ScanResult:
         """Scan a directory for lockfiles and parse all dependencies.
 
         Args:
-            directory: Directory to scan.
+            directory: Directory to scan (string or Path).
             exclude_patterns: Patterns to exclude from scanning.
 
         Returns:
@@ -82,7 +82,7 @@ class BaseScanner(ABC):
         lockfiles_scanned: list[str] = []
         errors: list[str] = []
 
-        directory = directory.resolve()
+        directory = Path(directory).resolve()
 
         for pattern in self.lockfile_patterns:
             for lockfile in directory.rglob(pattern):

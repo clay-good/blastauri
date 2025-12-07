@@ -3,7 +3,6 @@
 import re
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
 
 from blastauri.core.models import DependencyUpdate, Ecosystem
 from blastauri.git.gitlab_client import MergeRequestChange, MergeRequestInfo
@@ -29,9 +28,9 @@ class RenovateMRInfo:
     updates: list[DependencyUpdate] = field(default_factory=list)
     update_type: UpdateType = UpdateType.UNKNOWN
     is_grouped: bool = False
-    group_name: Optional[str] = None
+    group_name: str | None = None
     branch_name: str = ""
-    schedule: Optional[str] = None
+    schedule: str | None = None
 
 
 # Renovate bot usernames
@@ -50,23 +49,27 @@ RENOVATE_BRANCH_PREFIXES = [
 ]
 
 # Title patterns for Renovate MRs
+# NOTE: Order matters - more specific patterns must come before less specific ones
 RENOVATE_TITLE_PATTERNS = [
-    # Single package updates
-    r"^Update (?:dependency )?(.+) to v?(.+)$",
-    r"^(?:fix|chore|build)\(deps\): update (.+) to v?(.+)$",
-    r"^Update (.+) from v?(.+) to v?(.+)$",
+    # From X to Y format - must come before simple "to Y" pattern
+    r"^Update (.+?) from v?(\d[\d.]*\S*) to v?(\d[\d.]*\S*)$",
+    r"^(?:fix|chore|build)\(deps\): update (.+?) from v?(\d[\d.]*\S*) to v?(\d[\d.]*\S*)$",
+    # Single package updates with just target version
+    r"^Update (?:dependency )?(.+?) to v?(\d[\d.]*\S*)$",
+    r"^(?:fix|chore|build)\(deps\): update (.+?) to v?(\d[\d.]*\S*)$",
+    # Major/minor tagged updates
+    r"^Update (.+?) to v?(\d[\d.]*\S*) \(major\)$",
+    r"^Update (.+?) to v?(\d[\d.]*\S*) \(minor\)$",
     # Group updates
     r"^Update (.+) packages?$",
     r"^Update (.+) monorepo$",
-    r"^Update (.+) to v?(.+) \(major\)$",
-    r"^Update (.+) to v?(.+) \(minor\)$",
     # Lock file maintenance
     r"^Lock file maintenance$",
     r"^Update lockfile$",
     # Digest updates
-    r"^Update (.+) digest to (.+)$",
+    r"^Update (.+?) digest to (.+)$",
     # Pin updates
-    r"^Pin (.+) to v?(.+)$",
+    r"^Pin (.+?) to v?(\d[\d.]*\S*)$",
 ]
 
 # Ecosystem detection patterns for lockfiles
@@ -136,7 +139,7 @@ class RenovateParser:
     def parse_mr(
         self,
         mr: MergeRequestInfo,
-        changes: Optional[list[MergeRequestChange]] = None,
+        changes: list[MergeRequestChange] | None = None,
     ) -> RenovateMRInfo:
         """Parse a Renovate MR to extract update information.
 
@@ -348,7 +351,7 @@ class RenovateParser:
 
         return False
 
-    def _extract_group_name(self, branch: str) -> Optional[str]:
+    def _extract_group_name(self, branch: str) -> str | None:
         """Extract group name from branch."""
         # Remove renovate prefix
         name = branch
@@ -394,7 +397,7 @@ class RenovateParser:
 
 def parse_renovate_mr(
     mr: MergeRequestInfo,
-    changes: Optional[list[MergeRequestChange]] = None,
+    changes: list[MergeRequestChange] | None = None,
 ) -> RenovateMRInfo:
     """Convenience function to parse a Renovate MR.
 

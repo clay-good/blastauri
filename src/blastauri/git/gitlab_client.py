@@ -3,10 +3,19 @@
 import os
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 import gitlab
-from gitlab.v4.objects import Project, ProjectMergeRequest
+import gitlab.exceptions
+from gitlab.v4.objects import Project
+
+from blastauri.errors import (
+    GitLabAccessDeniedError,
+    GitLabAuthenticationError,
+    GitLabNotFoundError,
+    GitLabRateLimitError,
+    NetworkError,
+)
 
 
 @dataclass
@@ -14,9 +23,9 @@ class GitLabConfig:
     """Configuration for GitLab client."""
 
     url: str = "https://gitlab.com"
-    private_token: Optional[str] = None
-    oauth_token: Optional[str] = None
-    job_token: Optional[str] = None
+    private_token: str | None = None
+    oauth_token: str | None = None
+    job_token: str | None = None
 
     @classmethod
     def from_env(cls) -> "GitLabConfig":
@@ -86,14 +95,14 @@ class ProjectLabel:
 class GitLabClient:
     """Client for GitLab API operations."""
 
-    def __init__(self, config: Optional[GitLabConfig] = None):
+    def __init__(self, config: GitLabConfig | None = None):
         """Initialize the GitLab client.
 
         Args:
             config: GitLab configuration. If None, reads from environment.
         """
         self._config = config or GitLabConfig.from_env()
-        self._gl: Optional[gitlab.Gitlab] = None
+        self._gl: gitlab.Gitlab | None = None
 
     def _get_client(self) -> gitlab.Gitlab:
         """Get or create the GitLab client."""
@@ -118,9 +127,65 @@ class GitLabClient:
                 # Unauthenticated access
                 self._gl = gitlab.Gitlab(self._config.url)
 
-            self._gl.auth()
+            try:
+                self._gl.auth()
+            except gitlab.exceptions.GitlabAuthenticationError as e:
+                raise GitLabAuthenticationError() from e
+            except gitlab.exceptions.GitlabConnectionError as e:
+                raise NetworkError("GitLab", e) from e
 
         return self._gl
+
+    def _handle_gitlab_error(
+        self,
+        error: Exception,
+        project_id: str | int = "",
+        mr_iid: int | None = None,
+    ) -> None:
+        """Convert GitLab library exceptions to user-friendly errors.
+
+        Args:
+            error: The original exception.
+            project_id: Project ID or path for context.
+            mr_iid: Merge request IID for context.
+
+        Raises:
+            GitLabAuthenticationError: For 401 errors.
+            GitLabAccessDeniedError: For 403 errors.
+            GitLabNotFoundError: For 404 errors.
+            GitLabRateLimitError: For 429 errors.
+            NetworkError: For connection errors.
+        """
+        project_str = str(project_id) if project_id else ""
+
+        if isinstance(error, gitlab.exceptions.GitlabAuthenticationError):
+            raise GitLabAuthenticationError() from error
+
+        if isinstance(error, gitlab.exceptions.GitlabConnectionError):
+            raise NetworkError("GitLab", error) from error
+
+        if isinstance(error, gitlab.exceptions.GitlabHttpError):
+            status_code = getattr(error, "response_code", 0)
+            if status_code == 401:
+                raise GitLabAuthenticationError() from error
+            if status_code == 403:
+                raise GitLabAccessDeniedError(project_str) from error
+            if status_code == 404:
+                raise GitLabNotFoundError(project_str, mr_iid) from error
+            if status_code == 429:
+                # Try to get retry-after header
+                retry_after = None
+                if hasattr(error, "response_headers"):
+                    retry_after = error.response_headers.get("retry-after")
+                    if retry_after:
+                        retry_after = int(retry_after)
+                raise GitLabRateLimitError(retry_after) from error
+
+        if isinstance(error, gitlab.exceptions.GitlabGetError):
+            raise GitLabNotFoundError(project_str, mr_iid) from error
+
+        # Re-raise unknown errors
+        raise error
 
     def get_project(self, project_id: str | int) -> Project:
         """Get a GitLab project.
@@ -130,9 +195,19 @@ class GitLabClient:
 
         Returns:
             GitLab project object.
+
+        Raises:
+            GitLabAuthenticationError: If authentication fails.
+            GitLabAccessDeniedError: If access is denied.
+            GitLabNotFoundError: If the project is not found.
+            NetworkError: If connection fails.
         """
-        gl = self._get_client()
-        return gl.projects.get(project_id)
+        try:
+            gl = self._get_client()
+            return gl.projects.get(project_id)
+        except gitlab.exceptions.GitlabError as e:
+            self._handle_gitlab_error(e, project_id)
+            raise  # Should not reach here
 
     def get_merge_request(
         self,
@@ -147,9 +222,19 @@ class GitLabClient:
 
         Returns:
             Merge request information.
+
+        Raises:
+            GitLabAuthenticationError: If authentication fails.
+            GitLabAccessDeniedError: If access is denied.
+            GitLabNotFoundError: If the MR is not found.
+            NetworkError: If connection fails.
         """
-        project = self.get_project(project_id)
-        mr = project.mergerequests.get(mr_iid)
+        try:
+            project = self.get_project(project_id)
+            mr = project.mergerequests.get(mr_iid)
+        except gitlab.exceptions.GitlabError as e:
+            self._handle_gitlab_error(e, project_id, mr_iid)
+            raise  # Should not reach here
 
         return MergeRequestInfo(
             iid=mr.iid,
@@ -325,7 +410,7 @@ class GitLabClient:
         project_id: str | int,
         mr_iid: int,
         marker: str = "<!-- blastauri-analysis -->",
-    ) -> Optional[int]:
+    ) -> int | None:
         """Find an existing bot comment by marker.
 
         Args:
@@ -543,7 +628,7 @@ class GitLabClient:
         target_branch: str,
         title: str,
         description: str = "",
-        labels: Optional[list[str]] = None,
+        labels: list[str] | None = None,
         remove_source_branch: bool = True,
     ) -> MergeRequestInfo:
         """Create a new merge request.
@@ -624,7 +709,7 @@ class GitLabClient:
         self,
         project_id: str | int,
         mr_iid: int,
-    ) -> Optional[str]:
+    ) -> str | None:
         """Get the latest pipeline status for an MR.
 
         Args:

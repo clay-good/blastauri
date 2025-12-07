@@ -1,8 +1,8 @@
 """WAF-mitigatable CVE patterns and detection."""
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable
 
 from blastauri.core.models import CVE
 from blastauri.utils.logging import get_logger

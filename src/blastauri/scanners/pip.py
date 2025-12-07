@@ -3,7 +3,7 @@
 import json
 import re
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import ClassVar
 
 import toml
 

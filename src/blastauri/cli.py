@@ -3,7 +3,7 @@
 import asyncio
 import json
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 from rich.console import Console
@@ -34,6 +34,7 @@ config_app = typer.Typer(
 app.add_typer(config_app, name="config")
 
 console = Console()
+stderr_console = Console(stderr=True)
 logger = get_logger(__name__)
 
 
@@ -63,7 +64,7 @@ def main(
         ),
     ] = False,
     config: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option(
             "--config",
             "-c",
@@ -93,10 +94,32 @@ def main(
         logger.debug("Using configuration file: %s", config)
 
 
+def _handle_cli_error(error: Exception) -> None:
+    """Handle exceptions and display user-friendly error messages.
+
+    Args:
+        error: The exception to handle.
+
+    Raises:
+        typer.Exit: Always exits with code 1.
+    """
+    from blastauri.errors import BlastauriError
+
+    if isinstance(error, BlastauriError):
+        console.print(f"[bold red]Error:[/bold red] {error.message}")
+        if error.hint:
+            console.print(f"[yellow]Hint:[/yellow] {error.hint}")
+    else:
+        console.print(f"[red]Error: {error}[/red]")
+        logger.exception("Command failed")
+
+    raise typer.Exit(code=1)
+
+
 @app.command()
 def analyze(
     project: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--project",
             "-p",
@@ -104,21 +127,21 @@ def analyze(
         ),
     ] = None,
     mr: Annotated[
-        Optional[int],
+        int | None,
         typer.Option(
             "--mr",
             help="GitLab merge request IID.",
         ),
     ] = None,
     repo: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--repo",
             help="GitHub repository (owner/repo).",
         ),
     ] = None,
     pr: Annotated[
-        Optional[int],
+        int | None,
         typer.Option(
             "--pr",
             help="GitHub pull request number.",
@@ -139,28 +162,40 @@ def analyze(
         ),
     ] = True,
     ai: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--ai",
             help="AI provider for enhanced analysis (claude, augment, none).",
         ),
     ] = None,
     output: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option(
             "--output",
             "-o",
             help="Write report to file.",
         ),
     ] = None,
+    dry_run: Annotated[
+        bool,
+        typer.Option(
+            "--dry-run",
+            help="Run with sample data without requiring API tokens. Shows what would happen.",
+        ),
+    ] = False,
 ) -> None:
     """Analyze a Renovate/Dependabot merge request for breaking changes."""
+    # Handle dry-run mode with sample data
+    if dry_run:
+        _run_dry_run_analysis(output)
+        return
+
     if project and mr:
         console.print(f"Analyzing GitLab MR !{mr} in project {project}...")
         # Import here to avoid circular imports
         from blastauri.analysis.ai_reviewer import AIProvider
         from blastauri.git.gitlab_client import GitLabClient, GitLabConfig
-        from blastauri.git.mr_analyzer import MergeRequestAnalyzer, AnalysisConfig
+        from blastauri.git.mr_analyzer import AnalysisConfig, MergeRequestAnalyzer
 
         # Parse AI provider
         ai_provider = AIProvider.NONE
@@ -187,7 +222,7 @@ def analyze(
             result = asyncio.run(analyzer.analyze_mr(project, mr))
 
             # Display results
-            console.print(f"\n[bold]Analysis Complete[/bold]")
+            console.print("\n[bold]Analysis Complete[/bold]")
             console.print(f"Overall Severity: {result.report.overall_severity.value.upper()}")
             console.print(f"Risk Score: {result.report.overall_risk_score}/100")
 
@@ -208,7 +243,7 @@ def analyze(
                         console.print(f"  - {cve.id}: {cve.severity.value}")
 
             if result.report.recommendations:
-                console.print(f"\n[bold]Recommendations:[/bold]")
+                console.print("\n[bold]Recommendations:[/bold]")
                 for rec in result.report.recommendations[:5]:
                     console.print(f"  - {rec}")
 
@@ -249,15 +284,13 @@ def analyze(
         except typer.Exit:
             raise
         except Exception as e:
-            console.print(f"[red]Error: {e}[/red]")
-            logger.exception("Analysis failed")
-            raise typer.Exit(code=1)
+            _handle_cli_error(e)
 
     elif repo and pr:
         console.print(f"Analyzing GitHub PR #{pr} in {repo}...")
         from blastauri.analysis.ai_reviewer import AIProvider
         from blastauri.git.github_client import GitHubClient, GitHubConfig
-        from blastauri.git.pr_analyzer import PullRequestAnalyzer, PRAnalysisConfig
+        from blastauri.git.pr_analyzer import PRAnalysisConfig, PullRequestAnalyzer
 
         # Parse AI provider
         ai_provider = AIProvider.NONE
@@ -284,7 +317,7 @@ def analyze(
             result = asyncio.run(analyzer.analyze_pr(repo, pr))
 
             # Display results
-            console.print(f"\n[bold]Analysis Complete[/bold]")
+            console.print("\n[bold]Analysis Complete[/bold]")
             console.print(f"Overall Severity: {result.report.overall_severity.value.upper()}")
             console.print(f"Risk Score: {result.report.overall_risk_score}/100")
 
@@ -305,7 +338,7 @@ def analyze(
                         console.print(f"  - {cve.id}: {cve.severity.value}")
 
             if result.report.recommendations:
-                console.print(f"\n[bold]Recommendations:[/bold]")
+                console.print("\n[bold]Recommendations:[/bold]")
                 for rec in result.report.recommendations[:5]:
                     console.print(f"  - {rec}")
 
@@ -346,15 +379,215 @@ def analyze(
         except typer.Exit:
             raise
         except Exception as e:
-            console.print(f"[red]Error: {e}[/red]")
-            logger.exception("Analysis failed")
-            raise typer.Exit(code=1)
+            _handle_cli_error(e)
+
     else:
         console.print(
-            "[bold red]Error:[/bold red] Must specify either --project/--mr or --repo/--pr",
+            "[bold red]Error:[/bold red] Must specify either --project/--mr, --repo/--pr, or --dry-run",
             style="red",
         )
         raise typer.Exit(code=1)
+
+
+def _run_dry_run_analysis(output: Path | None = None) -> None:
+    """Run analysis with sample data to demonstrate functionality without API tokens."""
+
+    from blastauri.core.models import (
+        CVE,
+        BreakingChange,
+        BreakingChangeType,
+        Ecosystem,
+        Severity,
+        UpgradeImpact,
+    )
+
+    console.print("[bold cyan]Running in dry-run mode with sample data...[/bold cyan]\n")
+    console.print("This demonstrates what blastauri would output for a real MR/PR.\n")
+    console.print("[dim]No API tokens required. No actual API calls made.[/dim]\n")
+
+    # Create sample analysis data
+    sample_upgrades = [
+        UpgradeImpact(
+            dependency_name="requests",
+            ecosystem=Ecosystem.PYPI,
+            from_version="2.28.0",
+            to_version="2.31.0",
+            is_major_upgrade=False,
+            breaking_changes=[
+                BreakingChange(
+                    change_type=BreakingChangeType.CHANGED_BEHAVIOR,
+                    description="urllib3 2.0 dependency with stricter SSL validation",
+                    old_api="Lenient SSL certificate validation",
+                    new_api="Strict SSL certificate validation",
+                    migration_guide="Ensure valid SSL certificates or use verify=False (not recommended)",
+                    source="known_breaking_changes",
+                ),
+            ],
+            cves_fixed=[
+                CVE(
+                    id="CVE-2023-32681",
+                    description="Unintended leak of Proxy-Authorization header in requests",
+                    severity=Severity.MEDIUM,
+                    cvss_score=6.1,
+                    source="osv",
+                ),
+            ],
+            impacted_locations=[],
+            risk_score=35,
+            severity=Severity.MEDIUM,
+        ),
+        UpgradeImpact(
+            dependency_name="lodash",
+            ecosystem=Ecosystem.NPM,
+            from_version="4.17.21",
+            to_version="5.0.0",
+            is_major_upgrade=True,
+            breaking_changes=[
+                BreakingChange(
+                    change_type=BreakingChangeType.REMOVED_FUNCTION,
+                    description="_.pluck removed, use _.map with iteratee shorthand",
+                    old_api="_.pluck(collection, 'property')",
+                    new_api="_.map(collection, 'property')",
+                    migration_guide="Replace _.pluck(collection, 'prop') with _.map(collection, 'prop')",
+                    source="known_breaking_changes",
+                ),
+                BreakingChange(
+                    change_type=BreakingChangeType.REMOVED_FUNCTION,
+                    description="_.where removed, use _.filter with matches shorthand",
+                    old_api="_.where(collection, {key: value})",
+                    new_api="_.filter(collection, {key: value})",
+                    migration_guide="Replace _.where with _.filter",
+                    source="known_breaking_changes",
+                ),
+            ],
+            cves_fixed=[],
+            impacted_locations=[],
+            risk_score=65,
+            severity=Severity.HIGH,
+        ),
+    ]
+
+    # Calculate overall stats
+    total_breaking = sum(len(u.breaking_changes) for u in sample_upgrades)
+    total_cves = sum(len(u.cves_fixed) for u in sample_upgrades)
+    max_risk = max(u.risk_score for u in sample_upgrades)
+    overall_severity = Severity.HIGH if max_risk >= 60 else Severity.MEDIUM if max_risk >= 40 else Severity.LOW
+
+    # Display sample analysis results
+    console.print("[bold]Sample Analysis Results[/bold]")
+    console.print("-" * 40)
+    console.print()
+    console.print("[bold]MR/PR:[/bold] Sample Renovate Update")
+    console.print("[bold]Branch:[/bold] renovate/multi-dependency-update")
+    console.print()
+
+    console.print(f"[bold]Overall Severity:[/bold] [{_severity_color(overall_severity)}]{overall_severity.value.upper()}[/{_severity_color(overall_severity)}]")
+    console.print(f"[bold]Risk Score:[/bold] {max_risk}/100")
+    console.print()
+
+    console.print(f"[bold]Dependencies Updated:[/bold] {len(sample_upgrades)}")
+    for upgrade in sample_upgrades:
+        major_badge = " [yellow](MAJOR)[/yellow]" if upgrade.is_major_upgrade else ""
+        console.print(f"  - {upgrade.dependency_name}: {upgrade.from_version} -> {upgrade.to_version}{major_badge}")
+    console.print()
+
+    if total_breaking > 0:
+        console.print(f"[bold]Breaking Changes:[/bold] {total_breaking}")
+        for upgrade in sample_upgrades:
+            if upgrade.breaking_changes:
+                console.print(f"  [cyan]{upgrade.dependency_name}[/cyan]:")
+                for change in upgrade.breaking_changes:
+                    console.print(f"    - [{_change_type_color(change.change_type)}]{change.change_type.value}[/{_change_type_color(change.change_type)}]: {change.description}")
+                    if change.migration_guide:
+                        console.print(f"      [dim]Migration: {change.migration_guide}[/dim]")
+        console.print()
+
+    if total_cves > 0:
+        console.print(f"[bold]CVEs Fixed:[/bold] {total_cves} [green](security improvement)[/green]")
+        for upgrade in sample_upgrades:
+            for cve in upgrade.cves_fixed:
+                console.print(f"  - [{_severity_color(cve.severity)}]{cve.id}[/{_severity_color(cve.severity)}] ({cve.severity.value}): {cve.description[:60]}...")
+        console.print()
+
+    # Show what would happen
+    console.print("[bold]Actions that would be taken:[/bold]")
+    console.print("  [green]✓[/green] Post analysis comment to MR/PR")
+    console.print("  [green]✓[/green] Apply labels: blastauri:breaking, security:medium")
+    console.print("  [yellow]![/yellow] Would NOT auto-merge due to breaking changes")
+    console.print()
+
+    # Recommendations
+    console.print("[bold]Recommendations:[/bold]")
+    console.print("  1. Review lodash breaking changes before merging")
+    console.print("  2. Search codebase for _.pluck and _.where usage")
+    console.print("  3. requests upgrade fixes CVE - consider prioritizing")
+    console.print()
+
+    # Sample labels
+    labels_added = ["blastauri:breaking", "security:medium", "renovate"]
+    console.print(f"[bold]Labels:[/bold] {', '.join(labels_added)}")
+    console.print()
+
+    if output:
+        report_data = {
+            "dry_run": True,
+            "merge_request_id": "sample",
+            "repository": "example/repo",
+            "overall_risk_score": max_risk,
+            "overall_severity": overall_severity.value,
+            "summary": "Sample dry-run analysis demonstrating blastauri functionality",
+            "upgrades": [
+                {
+                    "name": u.dependency_name,
+                    "ecosystem": u.ecosystem.value,
+                    "from_version": u.from_version,
+                    "to_version": u.to_version,
+                    "is_major": u.is_major_upgrade,
+                    "breaking_changes": len(u.breaking_changes),
+                    "cves_fixed": len(u.cves_fixed),
+                    "risk_score": u.risk_score,
+                }
+                for u in sample_upgrades
+            ],
+            "breaking_changes": total_breaking,
+            "cves_fixed": total_cves,
+            "labels_added": labels_added,
+            "should_block": True,
+        }
+        output.write_text(json.dumps(report_data, indent=2))
+        console.print(f"[green]Sample report written to: {output}[/green]")
+
+    console.print("[bold cyan]Dry-run complete.[/bold cyan]")
+    console.print("[dim]Run with --project/--mr or --repo/--pr to analyze a real MR/PR.[/dim]")
+
+
+def _severity_color(severity: "Severity") -> str:
+    """Get color for severity level."""
+    from blastauri.core.models import Severity
+    return {
+        Severity.CRITICAL: "red bold",
+        Severity.HIGH: "red",
+        Severity.MEDIUM: "yellow",
+        Severity.LOW: "green",
+        Severity.NONE: "dim",
+        Severity.UNKNOWN: "dim",
+    }.get(severity, "white")
+
+
+def _change_type_color(change_type: "BreakingChangeType") -> str:
+    """Get color for breaking change type."""
+    from blastauri.core.models import BreakingChangeType
+    return {
+        BreakingChangeType.REMOVED_FUNCTION: "red",
+        BreakingChangeType.REMOVED_CLASS: "red",
+        BreakingChangeType.REMOVED_MODULE: "red",
+        BreakingChangeType.CHANGED_SIGNATURE: "yellow",
+        BreakingChangeType.RENAMED_EXPORT: "yellow",
+        BreakingChangeType.CHANGED_DEFAULT: "yellow",
+        BreakingChangeType.CHANGED_BEHAVIOR: "yellow",
+        BreakingChangeType.DEPRECATED: "dim",
+        BreakingChangeType.MAJOR_VERSION: "cyan",
+    }.get(change_type, "white")
 
 
 @app.command()
@@ -368,7 +601,7 @@ def scan(
             dir_okay=True,
             readable=True,
         ),
-    ] = Path("."),
+    ] = Path(),
     format: Annotated[
         str,
         typer.Option(
@@ -378,7 +611,7 @@ def scan(
         ),
     ] = "table",
     output: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option(
             "--output",
             "-o",
@@ -395,7 +628,10 @@ def scan(
     ] = "low",
 ) -> None:
     """Scan a directory for dependencies and known vulnerabilities."""
-    console.print(f"Scanning {path} for dependencies...")
+    # Use stderr for status messages when outputting JSON to keep stdout clean
+    status_console = stderr_console if format == "json" else console
+
+    status_console.print(f"Scanning {path} for dependencies...")
 
     from blastauri.scanners.detector import detect_ecosystems, get_scanners
 
@@ -404,10 +640,10 @@ def scan(
         ecosystems = detect_ecosystems(str(path))
 
         if not ecosystems:
-            console.print("[yellow]No supported lockfiles found.[/yellow]")
+            status_console.print("[yellow]No supported lockfiles found.[/yellow]")
             raise typer.Exit(code=0)
 
-        console.print(f"Detected ecosystems: {', '.join(e.value for e in ecosystems)}")
+        status_console.print(f"Detected ecosystems: {', '.join(e.value for e in ecosystems)}")
 
         # Get scanners and scan
         scanners = get_scanners(str(path))
@@ -417,7 +653,7 @@ def scan(
             result = scanner.scan_directory(str(path))
             all_dependencies.extend(result.dependencies)
 
-        console.print(f"Found {len(all_dependencies)} dependencies")
+        status_console.print(f"Found {len(all_dependencies)} dependencies")
 
         if format == "table":
             table = Table(title="Dependencies")
@@ -456,10 +692,13 @@ def scan(
 
             if output:
                 output.write_text(json.dumps(result_data, indent=2))
-                console.print(f"Results written to: {output}")
+                status_console.print(f"Results written to: {output}")
             else:
-                console.print(json.dumps(result_data, indent=2))
+                # Print JSON to stdout directly for clean piping
+                print(json.dumps(result_data, indent=2))
 
+    except typer.Exit:
+        raise
     except Exception as e:
         console.print(f"[red]Scan error: {e}[/red]")
         raise typer.Exit(code=1)
@@ -476,7 +715,7 @@ def waf_generate(
             dir_okay=True,
             readable=True,
         ),
-    ] = Path("."),
+    ] = Path(),
     provider: Annotated[
         str,
         typer.Option(
@@ -492,7 +731,7 @@ def waf_generate(
         ),
     ] = "log",
     output: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option(
             "--output",
             "-o",
@@ -500,7 +739,7 @@ def waf_generate(
         ),
     ] = None,
     cves: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--cves",
             help="Comma-separated list of CVE IDs to generate rules for.",
@@ -525,11 +764,10 @@ def waf_generate(
     from blastauri.waf.generator import (
         WafGenerator,
         WafGeneratorConfig,
-        generate_owasp_rules,
     )
     from blastauri.waf.providers.base import WafProviderType, WafRuleMode
 
-    console.print(f"Generating WAF rules...")
+    console.print("Generating WAF rules...")
     console.print(f"Provider: {provider}")
     console.print(f"Mode: {mode}")
 
@@ -573,7 +811,7 @@ def waf_generate(
             result = generator.generate_critical_protection()
 
         # Display results
-        console.print(f"\n[bold]Generation Complete[/bold]")
+        console.print("\n[bold]Generation Complete[/bold]")
         console.print(f"Rules generated: {result.rules_count}")
         console.print(f"Templates used: {len(result.templates_used)}")
 
@@ -615,9 +853,9 @@ def waf_sync(
             dir_okay=True,
             readable=True,
         ),
-    ] = Path("."),
+    ] = Path(),
     project: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--project",
             "-p",
@@ -625,7 +863,7 @@ def waf_sync(
         ),
     ] = None,
     repo: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--repo",
             help="GitHub repository (owner/repo).",
@@ -661,7 +899,7 @@ def waf_sync(
     ] = False,
 ) -> None:
     """Synchronize WAF rules with current dependency state."""
-    from blastauri.core.waf_orchestrator import WafSyncOrchestrator, WafSyncConfig
+    from blastauri.core.waf_orchestrator import WafSyncConfig, WafSyncOrchestrator
     from blastauri.waf.providers.base import WafProviderType, WafRuleMode
 
     console.print("Synchronizing WAF rules...")
@@ -692,7 +930,7 @@ def waf_sync(
         # Full sync requires scanning and CVE detection
         status = orchestrator.get_status()
 
-        console.print(f"\n[bold]Current WAF Status[/bold]")
+        console.print("\n[bold]Current WAF Status[/bold]")
         console.print(f"Provider: {status['provider']}")
         console.print(f"Last sync: {status['last_sync'] or 'Never'}")
         console.print(f"Total rules: {status['total_rules']}")
@@ -742,7 +980,7 @@ def waf_status(
             dir_okay=True,
             readable=True,
         ),
-    ] = Path("."),
+    ] = Path(),
     format: Annotated[
         str,
         typer.Option(
@@ -768,7 +1006,7 @@ def waf_status(
             return
 
         # Table format
-        console.print(f"\n[bold]WAF Rule Status[/bold]")
+        console.print("\n[bold]WAF Rule Status[/bold]")
         console.print(f"Provider: {status['provider']}")
         console.print(f"Last sync: {status['last_sync'] or 'Never'}")
         console.print("")
@@ -875,7 +1113,7 @@ def config_init(
         typer.Argument(
             help="Directory to create configuration file in.",
         ),
-    ] = Path("."),
+    ] = Path(),
     force: Annotated[
         bool,
         typer.Option(
@@ -1010,7 +1248,7 @@ def config_validate(
 @config_app.command("show")
 def config_show(
     config: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option(
             "--config",
             "-c",

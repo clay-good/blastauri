@@ -1,5 +1,9 @@
 # Blastauri
 
+[![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)](https://github.com/clay-good/blastauri)
+[![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+
 **Know what breaks before you merge.**
 
 Blastauri analyzes Renovate and Dependabot merge requests to identify breaking changes, prioritize security updates, and help you triage the flood of dependency upgrade MRs.
@@ -427,7 +431,7 @@ scanner:
 - **Breaking change detection** uses 6 strategies (semver, curated database, registry metadata, API diff, heuristics, changelogs) but may miss some changes for packages without TypeScript definitions, `__all__` exports, or that aren't in our curated database.
 - **CVE data** has inherent lag. NVD is often days behind initial disclosure.
 - **Static analysis** won't catch dynamic imports, metaprogramming, or runtime-only usage.
-- **WAF rules** are mitigations, not fixes. They can have false positives and should be tested before delpoyed and monitored after being deployed.
+- **WAF rules** are mitigations, not fixes. They can have false positives and should be tested before deployed and monitored after being deployed.
 - **API diff analysis** requires downloading package tarballs, which adds latency (~2-5s per version pair).
 - **GitHub repository checks** are rate-limited without authentication (60 requests/hour). Most analyses stay well within this limit.
 - **Python type analysis** requires Python 3 syntax. Python 2-only packages may have limited analysis.

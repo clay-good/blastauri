@@ -7,7 +7,7 @@ pull requests (GitHub) for WAF rule changes.
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Protocol, Union
+from typing import Protocol
 
 
 class GitLabClientProtocol(Protocol):
@@ -105,10 +105,10 @@ class MrCreationResult:
     """Result of MR/PR creation."""
 
     success: bool
-    mr_url: Optional[str] = None
-    mr_iid: Optional[int] = None
-    branch_name: Optional[str] = None
-    error: Optional[str] = None
+    mr_url: str | None = None
+    mr_iid: int | None = None
+    branch_name: str | None = None
+    error: str | None = None
 
 
 @dataclass
@@ -129,7 +129,7 @@ class MrCreator:
     Works with both GitLab and GitHub clients.
     """
 
-    def __init__(self, config: Optional[MrCreationConfig] = None) -> None:
+    def __init__(self, config: MrCreationConfig | None = None) -> None:
         """Initialize the MR creator.
 
         Args:
@@ -458,7 +458,7 @@ class WafMrCreator(MrCreator):
         self,
         repo_path: str,
         terraform_dir: str = "terraform/waf",
-        config: Optional[MrCreationConfig] = None,
+        config: MrCreationConfig | None = None,
     ) -> None:
         """Initialize the WAF MR creator.
 
@@ -473,7 +473,7 @@ class WafMrCreator(MrCreator):
 
     async def create_waf_mr(
         self,
-        client: Union[GitLabClientProtocol, GitHubClientProtocol],
+        client: GitLabClientProtocol | GitHubClientProtocol,
         project_id: str,
         new_rules: list[dict],
         removed_rules: list[dict],

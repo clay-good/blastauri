@@ -1,8 +1,6 @@
 """Structured logging configuration for blastauri."""
 
 import logging
-import sys
-from typing import Optional
 
 from rich.console import Console
 from rich.logging import RichHandler
@@ -12,7 +10,7 @@ _configured = False
 
 def configure_logging(
     level: str = "INFO",
-    format_string: Optional[str] = None,
+    format_string: str | None = None,
 ) -> None:
     """Configure logging for the application.
 
@@ -88,9 +86,9 @@ class LogContext:
 
     def __exit__(
         self,
-        exc_type: Optional[type],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[object],
+        exc_type: type | None,
+        exc_val: BaseException | None,
+        exc_tb: object | None,
     ) -> None:
         """Exit the context and restore original log level."""
         self.logger.setLevel(self.original_level)
@@ -113,7 +111,7 @@ def enable_debug_logging() -> None:
 def log_to_file(
     filepath: str,
     level: str = "DEBUG",
-    format_string: Optional[str] = None,
+    format_string: str | None = None,
 ) -> logging.FileHandler:
     """Add a file handler to the root logger.
 

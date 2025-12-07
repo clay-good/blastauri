@@ -1,0 +1,24 @@
+{
+  "changes": [
+    {
+      "old_path": "package-lock.json",
+      "new_path": "package-lock.json",
+      "a_mode": "100644",
+      "b_mode": "100644",
+      "new_file": false,
+      "renamed_file": false,
+      "deleted_file": false,
+      "diff": "@@ -1,15 +1,15 @@\n {\n   \"name\": \"my-project\",\n   \"version\": \"1.0.0\",\n   \"lockfileVersion\": 3,\n   \"packages\": {\n     \"node_modules/lodash\": {\n-      \"version\": \"4.17.21\",\n-      \"resolved\": \"https://registry.npmjs.org/lodash/-/lodash-4.17.21.tgz\",\n-      \"integrity\": \"sha512-v2kDEe57lecTulaDIuNTPy3Ry4gLGJ6Z1O3vE1krgXZNrsQ+LFTGHVxVjcXPs17LhbZVGedAJv8XZ1tvj5FvSg==\"\n+      \"version\": \"5.0.0\",\n+      \"resolved\": \"https://registry.npmjs.org/lodash/-/lodash-5.0.0.tgz\",\n+      \"integrity\": \"sha512-newIntegrity123==\"\n     }\n   }\n }"
+    },
+    {
+      "old_path": "package.json",
+      "new_path": "package.json",
+      "a_mode": "100644",
+      "b_mode": "100644",
+      "new_file": false,
+      "renamed_file": false,
+      "deleted_file": false,
+      "diff": "@@ -5,7 +5,7 @@\n   \"main\": \"index.js\",\n   \"dependencies\": {\n-    \"lodash\": \"^4.17.21\"\n+    \"lodash\": \"^5.0.0\"\n   }\n }"
+    }
+  ]
+}

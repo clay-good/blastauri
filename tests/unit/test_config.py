@@ -8,8 +8,6 @@ from pydantic import ValidationError
 from blastauri.config import (
     AnalysisConfig,
     BlastauriConfig,
-    GitHubConfig,
-    GitLabConfig,
     ScannerConfig,
     WafConfig,
     find_config_file,
@@ -130,7 +128,9 @@ class TestFindConfigFile:
         config_path.write_text("version: 1")
 
         found = find_config_file(temp_dir)
-        assert found == config_path
+        # Use resolve() to handle macOS /private/var vs /var symlink
+        assert found is not None
+        assert found.resolve() == config_path.resolve()
 
     def test_finds_yaml_config(self, temp_dir: Path) -> None:
         """Test finding .blastauri.yaml file."""
@@ -138,7 +138,9 @@ class TestFindConfigFile:
         config_path.write_text("version: 1")
 
         found = find_config_file(temp_dir)
-        assert found == config_path
+        # Use resolve() to handle macOS /private/var vs /var symlink
+        assert found is not None
+        assert found.resolve() == config_path.resolve()
 
     def test_prefers_yml_over_yaml(self, temp_dir: Path) -> None:
         """Test that .yml is preferred over .yaml."""
@@ -148,7 +150,9 @@ class TestFindConfigFile:
         yaml_path.write_text("version: 2")
 
         found = find_config_file(temp_dir)
-        assert found == yml_path
+        # Use resolve() to handle macOS /private/var vs /var symlink
+        assert found is not None
+        assert found.resolve() == yml_path.resolve()
 
     def test_returns_none_when_not_found(self, temp_dir: Path) -> None:
         """Test that None is returned when no config exists."""
@@ -164,7 +168,9 @@ class TestFindConfigFile:
         subdir.mkdir(parents=True)
 
         found = find_config_file(subdir)
-        assert found == config_path
+        # Use resolve() to handle macOS /private/var vs /var symlink
+        assert found is not None
+        assert found.resolve() == config_path.resolve()
 
 
 class TestLoadConfig:

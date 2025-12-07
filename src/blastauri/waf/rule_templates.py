@@ -8,7 +8,6 @@ This module provides pre-defined WAF rule templates for:
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
 
 from blastauri.waf.providers.base import (
     WafRuleConfig,
@@ -120,7 +119,7 @@ class RuleTemplateRegistry:
             self._category_mapping[template.category] = []
         self._category_mapping[template.category].append(template.template_id)
 
-    def get_template(self, template_id: str) -> Optional[RuleTemplate]:
+    def get_template(self, template_id: str) -> RuleTemplate | None:
         """Get a template by ID.
 
         Args:
@@ -866,7 +865,7 @@ class RuleTemplateRegistry:
 
 
 # Global registry instance
-_default_registry: Optional[RuleTemplateRegistry] = None
+_default_registry: RuleTemplateRegistry | None = None
 
 
 def get_default_registry() -> RuleTemplateRegistry:

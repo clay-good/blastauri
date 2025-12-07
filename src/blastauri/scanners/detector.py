@@ -52,17 +52,17 @@ ECOSYSTEM_FILES: dict[Ecosystem, list[str]] = {
 }
 
 
-def detect_ecosystems(directory: Path) -> list[Ecosystem]:
+def detect_ecosystems(directory: str | Path) -> list[Ecosystem]:
     """Detect which ecosystems are present in a directory.
 
     Args:
-        directory: Directory to scan.
+        directory: Directory to scan (string or Path).
 
     Returns:
         List of detected ecosystems.
     """
     detected: list[Ecosystem] = []
-    directory = directory.resolve()
+    directory = Path(directory).resolve()
 
     for ecosystem, indicator_files in ECOSYSTEM_FILES.items():
         for filename in indicator_files:
@@ -75,16 +75,16 @@ def detect_ecosystems(directory: Path) -> list[Ecosystem]:
     return detected
 
 
-def get_scanners_for_directory(directory: Path) -> list[BaseScanner]:
+def get_scanners_for_directory(directory: str | Path) -> list[BaseScanner]:
     """Get scanners for all detected ecosystems in a directory.
 
     Args:
-        directory: Directory to analyze.
+        directory: Directory to analyze (string or Path).
 
     Returns:
         List of scanner instances for detected ecosystems.
     """
-    ecosystems = detect_ecosystems(directory)
+    ecosystems = detect_ecosystems(Path(directory))
     scanners: list[BaseScanner] = []
 
     for ecosystem in ecosystems:
@@ -102,6 +102,21 @@ def get_all_scanners() -> list[BaseScanner]:
         List of all scanner instances.
     """
     return ScannerRegistry.get_all()
+
+
+def get_scanners(directory: str) -> list[BaseScanner]:
+    """Get scanners for all detected ecosystems in a directory.
+
+    Convenience function that accepts a string path.
+
+    Args:
+        directory: Directory path as string.
+
+    Returns:
+        List of scanner instances for detected ecosystems.
+    """
+    register_default_scanners()
+    return get_scanners_for_directory(Path(directory))
 
 
 def register_default_scanners() -> None:

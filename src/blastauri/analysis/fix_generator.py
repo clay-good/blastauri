@@ -1,8 +1,6 @@
 """Fix suggestion generator for breaking changes."""
 
-import re
 from dataclasses import dataclass
-from typing import Optional
 
 from blastauri.core.models import (
     BreakingChange,
@@ -32,8 +30,8 @@ class MigrationStep:
     order: int
     title: str
     description: str
-    before_code: Optional[str]
-    after_code: Optional[str]
+    before_code: str | None
+    after_code: str | None
     files_affected: list[str]
 
 

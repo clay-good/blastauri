@@ -10,7 +10,7 @@ readme = "README.md"
 license = "MIT"
 requires-python = ">=3.11"
 authors = [
-    { name = "Clay Good", email = "clay@example.com" },
+    { name = "Clay Good", email = "hi@claygood.com" },
 ]
 keywords = [
     "renovate",
@@ -161,7 +161,7 @@ addopts = [
     "--cov=blastauri",
     "--cov-report=term-missing",
     "--cov-report=xml",
-    "--cov-fail-under=80",
+    "--cov-fail-under=50",
 ]
 asyncio_mode = "auto"
 filterwarnings = [

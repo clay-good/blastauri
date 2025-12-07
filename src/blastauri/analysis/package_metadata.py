@@ -14,13 +14,17 @@ Signals collected:
 
 import re
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime
 from enum import Enum
-from typing import Optional
 
 import httpx
 
-from blastauri.core.models import BreakingChange, BreakingChangeType, Ecosystem, Severity
+from blastauri.core.models import (
+    BreakingChange,
+    BreakingChangeType,
+    Ecosystem,
+    Severity,
+)
 from blastauri.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -60,7 +64,7 @@ class PackageSignal:
     severity: Severity
     description: str
     source: str
-    details: Optional[dict] = None
+    details: dict | None = None
 
 
 @dataclass
@@ -73,14 +77,14 @@ class PackageMetadata:
 
     # Deprecation
     is_deprecated: bool = False
-    deprecation_message: Optional[str] = None
+    deprecation_message: str | None = None
 
     # Maintenance
     maintenance_status: MaintenanceStatus = MaintenanceStatus.UNKNOWN
-    last_publish_date: Optional[datetime] = None
+    last_publish_date: datetime | None = None
 
     # Repository
-    repository_url: Optional[str] = None
+    repository_url: str | None = None
     is_archived: bool = False
 
     # Dependencies
@@ -89,11 +93,11 @@ class PackageMetadata:
 
     # Types
     has_types: bool = False
-    types_package: Optional[str] = None  # e.g., @types/lodash
+    types_package: str | None = None  # e.g., @types/lodash
 
     # Exports (npm)
-    exports: Optional[dict] = None
-    main_entry: Optional[str] = None
+    exports: dict | None = None
+    main_entry: str | None = None
 
     # Signals detected
     signals: list[PackageSignal] = field(default_factory=list)
@@ -102,7 +106,7 @@ class PackageMetadata:
 class PackageMetadataAnalyzer:
     """Analyzes package metadata for breaking change signals."""
 
-    def __init__(self, http_client: Optional[httpx.AsyncClient] = None):
+    def __init__(self, http_client: httpx.AsyncClient | None = None):
         """Initialize the analyzer.
 
         Args:
@@ -232,7 +236,7 @@ class PackageMetadataAnalyzer:
         self,
         package_name: str,
         version: str,
-    ) -> Optional[PackageMetadata]:
+    ) -> PackageMetadata | None:
         """Fetch metadata for a specific npm package version."""
         if not self._http_client:
             return None
@@ -306,7 +310,7 @@ class PackageMetadataAnalyzer:
             logger.debug(f"Failed to fetch npm metadata for {package_name}@{version}: {e}")
             return None
 
-    async def _check_types_package(self, package_name: str) -> Optional[str]:
+    async def _check_types_package(self, package_name: str) -> str | None:
         """Check if a @types package exists for an npm package."""
         if not self._http_client:
             return None
@@ -453,7 +457,7 @@ class PackageMetadataAnalyzer:
 
         return changes
 
-    def _extract_major_from_range(self, version_range: str) -> Optional[int]:
+    def _extract_major_from_range(self, version_range: str) -> int | None:
         """Extract the minimum major version from a semver range."""
         # Handle common patterns: ^1.0.0, >=1.0.0, 1.x, etc.
         match = re.search(r"(\d+)", version_range)
@@ -461,7 +465,7 @@ class PackageMetadataAnalyzer:
             return int(match.group(1))
         return None
 
-    def _extract_min_version(self, version_range: str) -> Optional[str]:
+    def _extract_min_version(self, version_range: str) -> str | None:
         """Extract the minimum version from a semver range."""
         # Handle >=X.Y.Z, ^X.Y.Z, etc.
         match = re.search(r"(\d+\.\d+(?:\.\d+)?)", version_range)
@@ -548,7 +552,7 @@ class PackageMetadataAnalyzer:
 
         return breaking_changes
 
-    def _get_python_requires(self, release_files: list) -> Optional[str]:
+    def _get_python_requires(self, release_files: list) -> str | None:
         """Extract requires_python from release files."""
         for file_info in release_files:
             if "requires_python" in file_info:
@@ -561,7 +565,7 @@ class PackageMetadataAnalyzer:
         # This is a best-effort extraction
         return set()
 
-    def _extract_min_python(self, requires: str) -> Optional[str]:
+    def _extract_min_python(self, requires: str) -> str | None:
         """Extract minimum Python version from requires_python."""
         # Handle >=3.8, >=3.8.0, etc.
         match = re.search(r">=?\s*(\d+\.\d+)", requires)
@@ -595,7 +599,7 @@ class PackageMetadataAnalyzer:
         dropped = list(old_versions - new_versions)
         return sorted(dropped)
 
-    def _normalize_github_url(self, url: str) -> Optional[str]:
+    def _normalize_github_url(self, url: str) -> str | None:
         """Normalize various GitHub URL formats to API-compatible format.
 
         Args:

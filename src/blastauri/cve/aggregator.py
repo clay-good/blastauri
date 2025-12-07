@@ -1,7 +1,6 @@
 """CVE aggregator that queries multiple sources and deduplicates results."""
 
 import asyncio
-from typing import Callable
 
 from blastauri.core.models import CVE, Dependency, Ecosystem, Severity
 from blastauri.cve.cache import CveCache
@@ -9,7 +8,7 @@ from blastauri.cve.github_advisories import GitHubAdvisoriesClient
 from blastauri.cve.gitlab_advisories import GitLabAdvisoriesClient
 from blastauri.cve.nvd import NvdClient
 from blastauri.cve.osv import OsvClient
-from blastauri.cve.waf_patterns import is_waf_mitigatable, get_waf_pattern_id
+from blastauri.cve.waf_patterns import get_waf_pattern_id, is_waf_mitigatable
 from blastauri.utils.logging import get_logger
 
 logger = get_logger(__name__)

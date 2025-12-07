@@ -1,12 +1,11 @@
 """Analysis comment generator for merge requests."""
 
 from dataclasses import dataclass
-from typing import Optional
 
 from blastauri.core.models import (
+    CVE,
     AnalysisReport,
     BreakingChange,
-    CVE,
     ImpactedLocation,
     Severity,
     UpgradeImpact,
@@ -63,7 +62,7 @@ SEVERITY_COLORS = {
 class CommentGenerator:
     """Generates analysis comments for merge requests."""
 
-    def __init__(self, config: Optional[CommentConfig] = None):
+    def __init__(self, config: CommentConfig | None = None):
         """Initialize the comment generator.
 
         Args:
@@ -74,7 +73,7 @@ class CommentGenerator:
     def generate_analysis_comment(
         self,
         report: AnalysisReport,
-        ai_review: Optional[str] = None,
+        ai_review: str | None = None,
     ) -> str:
         """Generate a complete analysis comment.
 
@@ -431,8 +430,8 @@ class CommentGenerator:
 
 def generate_analysis_comment(
     report: AnalysisReport,
-    ai_review: Optional[str] = None,
-    config: Optional[CommentConfig] = None,
+    ai_review: str | None = None,
+    config: CommentConfig | None = None,
 ) -> str:
     """Convenience function to generate an analysis comment.
 

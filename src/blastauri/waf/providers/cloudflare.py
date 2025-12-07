@@ -1,12 +1,9 @@
 """Cloudflare WAF Terraform generation."""
 
-from typing import Optional
 
 from blastauri.waf.providers.base import (
     BaseWafProvider,
-    GeneratedTerraform,
     WafProviderType,
-    WafRuleConfig,
     WafRuleDefinition,
     WafRuleMode,
     WafRuleStatement,
@@ -390,14 +387,14 @@ provider "cloudflare" {
         ruleset_hcl = self.generate_rule_group(
             f"{name}-rules",
             rules,
-            f"Blastauri WAF rules for vulnerability protection",
+            "Blastauri WAF rules for vulnerability protection",
         )
 
         # Generate configuration output
         config_output = self.generate_web_acl(
             name,
             [f"{sanitized_name}-rules"],
-            f"Blastauri WAF Configuration",
+            "Blastauri WAF Configuration",
         )
 
         return provider_hcl + ruleset_hcl + "\n" + config_output

@@ -7,15 +7,13 @@ This module provides multiple strategies for detecting breaking changes:
 """
 
 import ast
-import json
 import re
-import tempfile
 import tarfile
+import tempfile
 from dataclasses import dataclass, field
 from enum import Enum
 from io import BytesIO
 from pathlib import Path
-from typing import Optional
 
 import httpx
 
@@ -44,9 +42,9 @@ class ApiExport:
 
     name: str
     kind: str  # function, class, constant, type
-    signature: Optional[str] = None
+    signature: str | None = None
     parameters: list[str] = field(default_factory=list)
-    return_type: Optional[str] = None
+    return_type: str | None = None
     is_default: bool = False
 
 
@@ -62,7 +60,7 @@ class ApiDiff:
 class ApiDiffAnalyzer:
     """Analyzes API differences between package versions."""
 
-    def __init__(self, http_client: Optional[httpx.AsyncClient] = None):
+    def __init__(self, http_client: httpx.AsyncClient | None = None):
         """Initialize the API diff analyzer.
 
         Args:
@@ -437,7 +435,7 @@ class ApiDiffAnalyzer:
             tree = ast.parse(content)
 
             # Check for __all__
-            all_exports: Optional[list[str]] = None
+            all_exports: list[str] | None = None
             for node in ast.walk(tree):
                 if isinstance(node, ast.Assign):
                     for target in node.targets:
@@ -636,7 +634,7 @@ class ApiDiffAnalyzer:
 
         return sig
 
-    def _annotation_to_string(self, annotation: ast.expr | None) -> Optional[str]:
+    def _annotation_to_string(self, annotation: ast.expr | None) -> str | None:
         """Convert AST annotation node to string representation.
 
         Args:
@@ -685,7 +683,7 @@ class ApiDiffAnalyzer:
 
         return None
 
-    def _default_to_string(self, default: ast.expr) -> Optional[str]:
+    def _default_to_string(self, default: ast.expr) -> str | None:
         """Convert default value AST node to string representation.
 
         Args:
@@ -753,11 +751,7 @@ class ApiDiffAnalyzer:
             new_exp = new_by_name[name]
 
             # Check for parameter changes
-            if old_exp.parameters != new_exp.parameters:
-                changed.append((old_exp, new_exp))
-            elif old_exp.return_type != new_exp.return_type:
-                changed.append((old_exp, new_exp))
-            elif old_exp.kind != new_exp.kind:
+            if old_exp.parameters != new_exp.parameters or old_exp.return_type != new_exp.return_type or old_exp.kind != new_exp.kind:
                 changed.append((old_exp, new_exp))
 
         return ApiDiff(removed=removed, added=added, changed=changed)

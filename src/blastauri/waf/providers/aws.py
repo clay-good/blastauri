@@ -1,16 +1,12 @@
 """AWS WAF Terraform generation."""
 
-from typing import Optional
 
 from blastauri.waf.providers.base import (
     BaseWafProvider,
-    GeneratedTerraform,
     WafProviderType,
-    WafRuleConfig,
     WafRuleDefinition,
     WafRuleMode,
     WafRuleStatement,
-    WafScope,
 )
 
 
@@ -310,7 +306,7 @@ class AwsWafProvider(BaseWafProvider):
 
         return f'''resource "aws_wafv2_web_acl" "{sanitized_name}" {{
   name        = "{self._escape_hcl_string(name)}"
-  description = "{self._escape_hcl_string(description or f'Blastauri WAF Web ACL')}"
+  description = "{self._escape_hcl_string(description or 'Blastauri WAF Web ACL')}"
   scope       = var.waf_scope
 
   default_action {{
@@ -390,14 +386,14 @@ resource "aws_wafv2_regex_pattern_set" "{self._sanitize_name(stmt.field_type)}_p
         rule_group_hcl = self.generate_rule_group(
             f"{name}-rules",
             rules,
-            f"Blastauri WAF rules for vulnerability protection",
+            "Blastauri WAF rules for vulnerability protection",
         )
 
         # Generate web ACL
         web_acl_hcl = self.generate_web_acl(
             name,
             [f"aws_wafv2_rule_group.{sanitized_name}-rules.arn"],
-            f"Blastauri WAF Web ACL",
+            "Blastauri WAF Web ACL",
         )
 
         return provider_hcl + regex_sets_hcl + rule_group_hcl + "\n" + web_acl_hcl

@@ -6,15 +6,13 @@ import pytest
 from pydantic import ValidationError
 
 from blastauri.core.models import (
+    CVE,
     AffectedPackage,
     AnalysisReport,
     BreakingChange,
     BreakingChangeType,
-    CVE,
     Dependency,
-    DependencyUpdate,
     Ecosystem,
-    ImpactedLocation,
     ScanResult,
     Severity,
     UpgradeImpact,

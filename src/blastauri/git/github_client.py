@@ -3,18 +3,25 @@
 import os
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
-from github import Auth, Github
-from github.PullRequest import PullRequest
+from github import Auth, Github, GithubException
 from github.Repository import Repository
+
+from blastauri.errors import (
+    GitHubAccessDeniedError,
+    GitHubAuthenticationError,
+    GitHubNotFoundError,
+    GitHubRateLimitError,
+    NetworkError,
+)
 
 
 @dataclass
 class GitHubConfig:
     """Configuration for GitHub client."""
 
-    token: Optional[str] = None
+    token: str | None = None
     base_url: str = "https://api.github.com"
 
     @classmethod
@@ -41,7 +48,7 @@ class PullRequestInfo:
     created_at: datetime
     updated_at: datetime
     labels: list[str] = field(default_factory=list)
-    mergeable: Optional[bool] = None
+    mergeable: bool | None = None
     merged: bool = False
 
 
@@ -54,8 +61,8 @@ class PullRequestFile:
     additions: int
     deletions: int
     changes: int
-    patch: Optional[str] = None
-    previous_filename: Optional[str] = None
+    patch: str | None = None
+    previous_filename: str | None = None
 
 
 @dataclass
@@ -70,14 +77,14 @@ class RepositoryLabel:
 class GitHubClient:
     """Client for GitHub API operations."""
 
-    def __init__(self, config: Optional[GitHubConfig] = None):
+    def __init__(self, config: GitHubConfig | None = None):
         """Initialize the GitHub client.
 
         Args:
             config: GitHub configuration. If None, reads from environment.
         """
         self._config = config or GitHubConfig.from_env()
-        self._gh: Optional[Github] = None
+        self._gh: Github | None = None
 
     def _get_client(self) -> Github:
         """Get or create the GitHub client."""
@@ -96,6 +103,45 @@ class GitHubClient:
 
         return self._gh
 
+    def _handle_github_error(
+        self,
+        error: Exception,
+        repo: str = "",
+        pr_number: int | None = None,
+    ) -> None:
+        """Convert GitHub library exceptions to user-friendly errors.
+
+        Args:
+            error: The original exception.
+            repo: Repository name for context.
+            pr_number: PR number for context.
+
+        Raises:
+            GitHubAuthenticationError: For 401 errors.
+            GitHubAccessDeniedError: For 403 errors.
+            GitHubNotFoundError: For 404 errors.
+            GitHubRateLimitError: For rate limit errors.
+            NetworkError: For connection errors.
+        """
+        if isinstance(error, GithubException):
+            status = error.status
+            if status == 401:
+                raise GitHubAuthenticationError() from error
+            if status == 403:
+                # Check if it's rate limiting
+                if "rate limit" in str(error.data).lower():
+                    authenticated = self._config.token is not None
+                    raise GitHubRateLimitError(authenticated=authenticated) from error
+                raise GitHubAccessDeniedError(repo) from error
+            if status == 404:
+                raise GitHubNotFoundError(repo, pr_number) from error
+
+        if isinstance(error, ConnectionError):
+            raise NetworkError("GitHub", error) from error
+
+        # Re-raise unknown errors
+        raise error
+
     def get_repository(self, repo_full_name: str) -> Repository:
         """Get a GitHub repository.
 
@@ -104,9 +150,19 @@ class GitHubClient:
 
         Returns:
             GitHub repository object.
+
+        Raises:
+            GitHubAuthenticationError: If authentication fails.
+            GitHubAccessDeniedError: If access is denied.
+            GitHubNotFoundError: If the repository is not found.
+            NetworkError: If connection fails.
         """
-        gh = self._get_client()
-        return gh.get_repo(repo_full_name)
+        try:
+            gh = self._get_client()
+            return gh.get_repo(repo_full_name)
+        except GithubException as e:
+            self._handle_github_error(e, repo_full_name)
+            raise  # Should not reach here
 
     def get_pull_request(
         self,
@@ -121,9 +177,19 @@ class GitHubClient:
 
         Returns:
             Pull request information.
+
+        Raises:
+            GitHubAuthenticationError: If authentication fails.
+            GitHubAccessDeniedError: If access is denied.
+            GitHubNotFoundError: If the PR is not found.
+            NetworkError: If connection fails.
         """
-        repo = self.get_repository(repo_full_name)
-        pr = repo.get_pull(pr_number)
+        try:
+            repo = self.get_repository(repo_full_name)
+            pr = repo.get_pull(pr_number)
+        except GithubException as e:
+            self._handle_github_error(e, repo_full_name, pr_number)
+            raise  # Should not reach here
 
         return PullRequestInfo(
             number=pr.number,
@@ -276,7 +342,7 @@ class GitHubClient:
         repo_full_name: str,
         pr_number: int,
         marker: str = "<!-- blastauri-analysis -->",
-    ) -> Optional[int]:
+    ) -> int | None:
         """Find an existing bot comment by marker.
 
         Args:
@@ -503,7 +569,7 @@ class GitHubClient:
         base_branch: str,
         title: str,
         body: str = "",
-        labels: Optional[list[str]] = None,
+        labels: list[str] | None = None,
     ) -> PullRequestInfo:
         """Create a new pull request.
 
@@ -577,7 +643,7 @@ class GitHubClient:
     def get_workflow_runs(
         self,
         repo_full_name: str,
-        branch: Optional[str] = None,
+        branch: str | None = None,
     ) -> list[dict[str, Any]]:
         """Get workflow runs for a repository.
 

@@ -2,7 +2,7 @@
 
 import os
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import yaml
 from pydantic import BaseModel, Field, field_validator
@@ -104,7 +104,7 @@ class GitLabConfig(BaseModel):
         default="https://gitlab.com",
         description="GitLab instance URL",
     )
-    token: Optional[str] = Field(
+    token: str | None = Field(
         default=None,
         description="GitLab personal access token (prefer GITLAB_TOKEN env var)",
     )
@@ -117,7 +117,7 @@ class GitHubConfig(BaseModel):
         default="https://api.github.com",
         description="GitHub API URL",
     )
-    token: Optional[str] = Field(
+    token: str | None = Field(
         default=None,
         description="GitHub personal access token (prefer GITHUB_TOKEN env var)",
     )
@@ -147,7 +147,7 @@ class BlastauriConfig(BaseModel):
         return v.lower()
 
 
-def find_config_file(start_path: Optional[Path] = None) -> Optional[Path]:
+def find_config_file(start_path: Path | None = None) -> Path | None:
     """Find the nearest .blastauri.yml configuration file.
 
     Searches from start_path up to the root directory.
@@ -178,7 +178,7 @@ def find_config_file(start_path: Optional[Path] = None) -> Optional[Path]:
 
 
 def load_config(
-    config_path: Optional[Path] = None,
+    config_path: Path | None = None,
     env_prefix: str = "BLASTAURI_",
 ) -> BlastauriConfig:
     """Load configuration from file and environment variables.

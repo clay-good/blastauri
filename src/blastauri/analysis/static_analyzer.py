@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import ClassVar, Optional
+from typing import ClassVar
 
 from blastauri.core.models import Ecosystem, UsageLocation
 
@@ -28,7 +28,7 @@ class ImportInfo:
 
     module: str
     names: list[str]
-    alias: Optional[str]
+    alias: str | None
     is_from_import: bool
     line_number: int
     file_path: str
@@ -778,7 +778,7 @@ class StaticAnalyzer:
 
     def __init__(
         self,
-        exclude_patterns: Optional[list[str]] = None,
+        exclude_patterns: list[str] | None = None,
     ):
         """Initialize the static analyzer.
 
@@ -793,7 +793,7 @@ class StaticAnalyzer:
             Ecosystem.RUBYGEMS: RubyAnalyzer(),
         }
 
-    def get_analyzer(self, ecosystem: Ecosystem) -> Optional[BaseLanguageAnalyzer]:
+    def get_analyzer(self, ecosystem: Ecosystem) -> BaseLanguageAnalyzer | None:
         """Get the analyzer for an ecosystem.
 
         Args:
@@ -905,7 +905,7 @@ class StaticAnalyzer:
         directory: Path,
         ecosystem: Ecosystem,
         package_name: str,
-        symbols: Optional[list[str]] = None,
+        symbols: list[str] | None = None,
     ) -> list[UsageLocation]:
         """Find all usages of a package in a directory.
 

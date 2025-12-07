@@ -5,7 +5,7 @@ import re
 from datetime import datetime
 from typing import Any
 
-from blastauri.core.models import AffectedPackage, CVE, Ecosystem, Severity
+from blastauri.core.models import CVE, AffectedPackage, Ecosystem, Severity
 from blastauri.utils.http import AsyncHttpClient, RateLimiter, create_nvd_rate_limiter
 from blastauri.utils.logging import get_logger
 
@@ -335,7 +335,7 @@ class NvdClient:
         metrics = cve_data.get("metrics", {})
 
         for version in ["cvssMetricV31", "cvssMetricV30", "cvssMetricV2"]:
-            if version in metrics and metrics[version]:
+            if metrics.get(version):
                 metric = metrics[version][0]
                 cvss_data = metric.get("cvssData", {})
 

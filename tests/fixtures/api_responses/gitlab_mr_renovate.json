@@ -1,0 +1,27 @@
+{
+  "id": 123456789,
+  "iid": 42,
+  "title": "Update dependency lodash to v5",
+  "description": "This MR contains the following updates:\n\n| Package | Type | Update | Change |\n|---|---|---|---|\n| lodash | dependencies | major | `4.17.21` -> `5.0.0` |\n\n---\n\n### Release Notes\n\n<details>\n<summary>lodash/lodash</summary>\n\n### [`v5.0.0`](https://github.com/lodash/lodash/releases/tag/5.0.0)\n\n#### Breaking Changes\n- Removed `_.pluck` (use `_.map` with iteratee shorthand)\n- Changed `_.merge` behavior for arrays\n- Dropped support for Node.js 12\n\n</details>\n\n---\n\n### Configuration\n\nSchedule: \"every weekend\"\nAutomerge: Disabled",
+  "state": "opened",
+  "created_at": "2024-01-15T10:30:00Z",
+  "updated_at": "2024-01-15T10:30:00Z",
+  "merged_at": null,
+  "source_branch": "renovate/lodash-5.x",
+  "target_branch": "main",
+  "author": {
+    "id": 12345,
+    "username": "renovate-bot",
+    "name": "Renovate Bot",
+    "avatar_url": "https://gitlab.com/uploads/-/system/user/avatar/12345/avatar.png"
+  },
+  "labels": [],
+  "web_url": "https://gitlab.com/mygroup/myproject/-/merge_requests/42",
+  "has_conflicts": false,
+  "merge_status": "can_be_merged",
+  "diff_refs": {
+    "base_sha": "abc123",
+    "head_sha": "def456",
+    "start_sha": "abc123"
+  }
+}

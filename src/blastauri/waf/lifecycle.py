@@ -7,13 +7,12 @@ This module tracks WAF rules and manages their lifecycle:
 """
 
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Optional
 
-from blastauri.core.models import CVE, Dependency, Severity
-from blastauri.waf.providers.base import WafProviderType, WafRuleMode
+from blastauri.core.models import CVE, Dependency
+from blastauri.waf.providers.base import WafProviderType
 
 
 @dataclass
@@ -37,8 +36,8 @@ class WafRuleState:
     provider: str
     triggered_by: RuleTrigger
     status: str  # "active", "obsolete", "promoted"
-    last_triggered: Optional[str] = None
-    promoted_at: Optional[str] = None
+    last_triggered: str | None = None
+    promoted_at: str | None = None
     notes: str = ""
 
     def to_dict(self) -> dict:
@@ -92,7 +91,7 @@ class WafState:
     generated_at: str
     rules: list[WafRuleState]
     provider: str = "aws"
-    last_sync: Optional[str] = None
+    last_sync: str | None = None
 
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
@@ -129,7 +128,7 @@ class WafState:
         """Get all active rules."""
         return [r for r in self.rules if r.status == "active"]
 
-    def get_rule_by_id(self, rule_id: str) -> Optional[WafRuleState]:
+    def get_rule_by_id(self, rule_id: str) -> WafRuleState | None:
         """Get a rule by ID."""
         for rule in self.rules:
             if rule.rule_id == rule_id:
@@ -149,7 +148,7 @@ class LifecycleChange:
     rule_id: str
     cve_ids: list[str]
     reason: str
-    rule_state: Optional[WafRuleState] = None
+    rule_state: WafRuleState | None = None
 
 
 @dataclass
@@ -253,7 +252,7 @@ class WafLifecycleManager:
         unchanged_rules: list[WafRuleState] = []
 
         # Build lookup of current CVEs
-        current_cve_ids = {cve.cve_id for cve in detected_cves}
+        current_cve_ids = {cve.id for cve in detected_cves}
 
         # Check existing rules for obsolescence
         for rule in current_state.get_active_rules():
@@ -290,13 +289,13 @@ class WafLifecycleManager:
             existing_cve_coverage.update(rule.cve_ids)
 
         for cve in detected_cves:
-            if cve.is_waf_mitigatable and cve.cve_id not in existing_cve_coverage:
+            if cve.is_waf_mitigatable and cve.id not in existing_cve_coverage:
                 # Find which dependency triggered this
                 trigger = self._find_trigger_dependency(cve, dependencies)
 
                 new_rule = WafRuleState(
-                    rule_id=f"blastauri-{cve.cve_id.lower().replace('-', '')}",
-                    cve_ids=[cve.cve_id],
+                    rule_id=f"blastauri-{cve.id.lower().replace('-', '')}",
+                    cve_ids=[cve.id],
                     created_at=datetime.utcnow().isoformat() + "Z",
                     mode="log",
                     provider=self._provider.value,
@@ -309,7 +308,7 @@ class WafLifecycleManager:
                         change_type="add",
                         rule_id=new_rule.rule_id,
                         cve_ids=new_rule.cve_ids,
-                        reason=f"New WAF-mitigatable vulnerability detected: {cve.cve_id}",
+                        reason=f"New WAF-mitigatable vulnerability detected: {cve.id}",
                         rule_state=new_rule,
                     )
                 )
@@ -568,7 +567,7 @@ class WafLifecycleManager:
         self,
         state: WafState,
         rule_id: str,
-    ) -> Optional[WafRuleState]:
+    ) -> WafRuleState | None:
         """Promote a rule from log to block mode.
 
         Args:
@@ -623,7 +622,7 @@ class WafLifecycleManager:
     def find_promotion_candidates(
         self,
         state: WafState,
-        min_days: Optional[int] = None,
+        min_days: int | None = None,
     ) -> list[WafRuleState]:
         """Find rules ready for promotion.
 

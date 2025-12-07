@@ -1,0 +1,65 @@
+{
+  "name": "lodash",
+  "dist-tags": {
+    "latest": "5.0.0"
+  },
+  "versions": {
+    "4.17.21": {
+      "name": "lodash",
+      "version": "4.17.21",
+      "description": "Lodash modular utilities",
+      "main": "lodash.js",
+      "repository": {
+        "type": "git",
+        "url": "git+https://github.com/lodash/lodash.git"
+      },
+      "dependencies": {},
+      "devDependencies": {},
+      "engines": {
+        "node": ">=12.0.0"
+      },
+      "dist": {
+        "shasum": "679591c564c3bffaae8454cf0b3df370c3d6911c",
+        "tarball": "https://registry.npmjs.org/lodash/-/lodash-4.17.21.tgz",
+        "fileCount": 1054,
+        "unpackedSize": 1412415
+      }
+    },
+    "5.0.0": {
+      "name": "lodash",
+      "version": "5.0.0",
+      "description": "Lodash modular utilities",
+      "main": "lodash.js",
+      "exports": {
+        ".": "./lodash.js",
+        "./fp": "./fp.js"
+      },
+      "repository": {
+        "type": "git",
+        "url": "git+https://github.com/lodash/lodash.git"
+      },
+      "dependencies": {},
+      "devDependencies": {},
+      "engines": {
+        "node": ">=18.0.0"
+      },
+      "dist": {
+        "shasum": "newsha123",
+        "tarball": "https://registry.npmjs.org/lodash/-/lodash-5.0.0.tgz",
+        "fileCount": 542,
+        "unpackedSize": 856000
+      },
+      "deprecated": false
+    }
+  },
+  "time": {
+    "created": "2012-04-23T17:17:22.456Z",
+    "modified": "2024-01-15T10:00:00.000Z",
+    "4.17.21": "2021-02-20T15:42:16.891Z",
+    "5.0.0": "2024-01-15T10:00:00.000Z"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lodash/lodash.git"
+  }
+}

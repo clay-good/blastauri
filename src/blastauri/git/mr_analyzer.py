@@ -1,11 +1,7 @@
 """Main merge request analyzer orchestrating all analysis components."""
 
-import asyncio
-import tempfile
 from dataclasses import dataclass, field
-from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 from blastauri.analysis.ai_reviewer import AIProvider, ai_review_upgrade
 from blastauri.analysis.api_diff import ApiDiffAnalyzer
@@ -19,21 +15,20 @@ from blastauri.analysis.known_breaking_changes import get_known_breaking_changes
 from blastauri.analysis.package_metadata import PackageMetadataAnalyzer
 from blastauri.analysis.usage_finder import UsageFinder
 from blastauri.core.models import (
+    CVE,
     AnalysisReport,
     BreakingChange,
-    CVE,
     DependencyUpdate,
-    Ecosystem,
     ImpactedLocation,
     Severity,
     UpgradeImpact,
 )
 from blastauri.cve.aggregator import CveAggregator
 from blastauri.cve.waf_patterns import get_waf_pattern_id, is_waf_mitigatable
-from blastauri.git.comment_generator import CommentConfig, CommentGenerator
-from blastauri.git.gitlab_client import GitLabClient, MergeRequestInfo
+from blastauri.git.comment_generator import CommentGenerator
+from blastauri.git.gitlab_client import GitLabClient
 from blastauri.git.label_manager import LabelManager, determine_labels_for_analysis
-from blastauri.git.renovate_parser import RenovateMRInfo, RenovateParser
+from blastauri.git.renovate_parser import RenovateParser
 
 
 @dataclass
@@ -73,12 +68,12 @@ class AnalysisResult:
     """Result of MR analysis."""
 
     report: AnalysisReport
-    comment_body: Optional[str] = None
+    comment_body: str | None = None
     labels_added: list[str] = field(default_factory=list)
     labels_removed: list[str] = field(default_factory=list)
-    ai_review: Optional[str] = None
+    ai_review: str | None = None
     should_block: bool = False
-    error: Optional[str] = None
+    error: str | None = None
 
 
 class MergeRequestAnalyzer:
@@ -87,7 +82,7 @@ class MergeRequestAnalyzer:
     def __init__(
         self,
         gitlab_client: GitLabClient,
-        config: Optional[AnalysisConfig] = None,
+        config: AnalysisConfig | None = None,
     ):
         """Initialize the MR analyzer.
 
@@ -108,7 +103,7 @@ class MergeRequestAnalyzer:
         self,
         project_id: str | int,
         mr_iid: int,
-        repository_path: Optional[Path] = None,
+        repository_path: Path | None = None,
     ) -> AnalysisResult:
         """Analyze a merge request.
 
@@ -235,7 +230,7 @@ class MergeRequestAnalyzer:
     async def _analyze_update(
         self,
         update: DependencyUpdate,
-        repository_path: Optional[Path],
+        repository_path: Path | None,
     ) -> UpgradeImpact:
         """Analyze a single dependency update.
 
@@ -531,9 +526,9 @@ class MergeRequestAnalyzer:
 async def analyze_renovate_mr(
     project_id: str | int,
     mr_iid: int,
-    gitlab_token: Optional[str] = None,
-    repository_path: Optional[Path] = None,
-    config: Optional[AnalysisConfig] = None,
+    gitlab_token: str | None = None,
+    repository_path: Path | None = None,
+    config: AnalysisConfig | None = None,
 ) -> AnalysisResult:
     """Convenience function to analyze a Renovate MR.
 
