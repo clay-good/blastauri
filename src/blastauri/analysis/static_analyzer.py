@@ -20,6 +20,7 @@ class UsageType(str, Enum):
     DECORATOR = "decorator"
     TYPE_ANNOTATION = "type_annotation"
     INSTANTIATION = "instantiation"
+    UNKNOWN = "unknown"
 
 
 @dataclass
@@ -32,6 +33,50 @@ class ImportInfo:
     is_from_import: bool
     line_number: int
     file_path: str
+
+
+@dataclass
+class CallGraphNode:
+    """Node in the call graph (function or method)."""
+
+    name: str
+    file_path: str
+    start_line: int
+    end_line: int
+    is_external: bool = False
+    
+    @property
+    def id(self) -> str:
+        """Unique identifier for the node."""
+        return f"{self.file_path}:{self.name}"
+
+
+@dataclass
+class CallGraphEdge:
+    """Edge in the call graph (function call)."""
+
+    source: str  # Name of the caller function
+    target: str  # Name of the called function
+    line_number: int
+    file_path: str
+
+
+class CallGraph:
+    """Represents the call graph of the codebase."""
+
+    def __init__(self) -> None:
+        """Initialize the call graph."""
+        self.nodes: dict[str, CallGraphNode] = {}
+        self.edges: list[CallGraphEdge] = []
+
+    def add_node(self, node: CallGraphNode) -> None:
+        """Add a node to the graph."""
+        self.nodes[node.id] = node
+
+    def add_edge(self, edge: CallGraphEdge) -> None:
+        """Add an edge to the graph."""
+        self.edges.append(edge)
+
 
 
 # Default patterns to exclude from analysis
@@ -123,6 +168,42 @@ class BaseLanguageAnalyzer(ABC):
         """
         pass
 
+    @abstractmethod
+    def extract_call_graph_nodes(
+        self,
+        file_path: Path,
+        content: str,
+    ) -> list[CallGraphNode]:
+        """Extract function/method definitions from a file.
+
+        Args:
+            file_path: Path to the file.
+            content: File content.
+
+        Returns:
+            List of call graph nodes (function/method definitions).
+        """
+        pass
+
+    @abstractmethod
+    def extract_call_graph_edges(
+        self,
+        file_path: Path,
+        content: str,
+        nodes: list[CallGraphNode],
+    ) -> list[CallGraphEdge]:
+        """Extract function calls from a file.
+
+        Args:
+            file_path: Path to the file.
+            content: File content.
+            nodes: List of known nodes to identify callers.
+
+        Returns:
+            List of call graph edges (function calls).
+        """
+        pass
+
 
 class PythonAnalyzer(BaseLanguageAnalyzer):
     """Analyzer for Python code."""
@@ -130,8 +211,254 @@ class PythonAnalyzer(BaseLanguageAnalyzer):
     file_extensions: ClassVar[list[str]] = [".py", ".pyi"]
     ecosystem: ClassVar[Ecosystem] = Ecosystem.PYPI
 
+    def __init__(self):
+        """Initialize Python analyzer with tree-sitter."""
+        super().__init__()
+        if self._tree_sitter_available:
+            from tree_sitter import Language, Parser
+            import tree_sitter_python
+
+            self.language = Language(tree_sitter_python.language())
+            self.parser = Parser(self.language)
+        else:
+            self.language = None
+            self.parser = None
+
     def find_imports(self, file_path: Path, content: str) -> list[ImportInfo]:
-        """Find all imports in a Python file."""
+        """Find all imports in a Python file using AST if available."""
+        if self._tree_sitter_available and self.parser:
+            return self._find_imports_ast(file_path, content)
+        return self._find_imports_regex(file_path, content)
+
+    def extract_call_graph_nodes(self, file_path: Path, content: str) -> list[CallGraphNode]:
+        """Extract function/method definitions using AST."""
+        if not self._tree_sitter_available or not self.parser:
+            return []
+            
+        return self._find_definitions_ast(file_path, content)
+
+    def extract_call_graph_edges(
+        self, file_path: Path, content: str, nodes: list[CallGraphNode]
+    ) -> list[CallGraphEdge]:
+        """Extract function calls within defined nodes."""
+        if not self._tree_sitter_available or not self.parser:
+            return []
+
+        return self._find_calls_ast(file_path, content, nodes)
+
+    def _find_imports_ast(self, file_path: Path, content: str) -> list[ImportInfo]:
+        """Find imports using tree-sitter AST."""
+        from tree_sitter import Query, QueryCursor
+
+        imports: list[ImportInfo] = []
+        tree = self.parser.parse(bytes(content, "utf8"))
+
+        query = Query(self.language, """
+            (import_statement
+                name: (dotted_name) @import_name)
+            
+            (import_statement
+                name: (aliased_import
+                    name: (dotted_name) @import_name
+                    alias: (identifier) @import_alias))
+
+            (import_from_statement
+                module_name: (dotted_name) @from_module
+                name: (dotted_name) @from_name)
+
+            (import_from_statement
+                module_name: (dotted_name) @from_module
+                name: (aliased_import
+                    name: (dotted_name) @from_name
+                    alias: (identifier) @from_alias))
+            
+            (import_from_statement
+                module_name: (relative_import) @from_relative
+                name: (dotted_name) @from_name)
+        """)
+
+        cursor = QueryCursor(query)
+        matches = cursor.matches(tree.root_node)
+
+        # We need to aggregate matches by statement line number sometimes, 
+        # but ImportInfo is per "imported symbol".
+        # Actually our ImportInfo structure assumes one entry per symbol? 
+        # "names: list[str]".
+        # BaseLanguageAnalyzer.ImportInfo:
+        # module: str (e.g. "json")
+        # names: list[str] (e.g. ["load"])
+        # alias: str | None
+        
+        # So we can emit one ImportInfo per captured symbol.
+        
+        for match_id, captures_dict in matches:
+            module = None
+            name = None
+            alias = None
+            line = 0
+
+            # Helper to get text
+            def get_text(node):
+                return content[node.start_byte:node.end_byte]
+
+            if "import_name" in captures_dict:
+                # import X [as Y], Z
+                # Each match is for one name
+                node = captures_dict["import_name"][0]
+                module = get_text(node)
+                line = node.start_point[0] + 1
+                if "import_alias" in captures_dict:
+                    alias = get_text(captures_dict["import_alias"][0])
+
+                imports.append(ImportInfo(
+                    module=module,
+                    names=[], # For plain import, names is usually empty in this model?
+                              # Wait, _find_imports_regex uses names=[] for "import X"
+                    alias=alias,
+                    is_from_import=False,
+                    line_number=line,
+                    file_path=str(file_path)
+                ))
+            
+            elif "from_module" in captures_dict or "from_relative" in captures_dict:
+                # from X import Y
+                if "from_module" in captures_dict:
+                    module_node = captures_dict["from_module"][0]
+                    module = get_text(module_node)
+                else:
+                    module_node = captures_dict["from_relative"][0]
+                    module = get_text(module_node) # e.g. "." or ".."
+                
+                line = module_node.start_point[0] + 1
+
+                if "from_name" in captures_dict:
+                    # Capture name is typically dotted_name e.g. "load" (identifier inside dotted_name) or "a.b"
+                    name_node = captures_dict["from_name"][0]
+                    name = get_text(name_node)
+                    
+                    if "from_alias" in captures_dict:
+                        alias = get_text(captures_dict["from_alias"][0])
+                        
+                    imports.append(ImportInfo(
+                        module=module,
+                        names=[name],
+                        alias=alias,
+                        is_from_import=True,
+                        line_number=line,
+                        file_path=str(file_path)
+                    ))
+
+        return imports
+
+    def _find_definitions_ast(self, file_path: Path, content: str) -> list[CallGraphNode]:
+        """Find function/class definitions."""
+        from tree_sitter import Query, QueryCursor
+        nodes: list[CallGraphNode] = []
+        tree = self.parser.parse(bytes(content, "utf8"))
+        
+        query = Query(self.language, """
+            (function_definition
+                name: (identifier) @name) @func
+        """)
+        
+        cursor = QueryCursor(query)
+        matches = cursor.matches(tree.root_node)
+        
+        for match_id, captures_dict in matches:
+            for capture_name, captured_nodes in captures_dict.items():
+                for node in captured_nodes:
+                    if capture_name == "name":
+                        # node is the (identifier) containing the name
+                        func_name = content[node.start_byte:node.end_byte]
+                        func_def = node.parent
+                        if not func_def:
+                            continue
+                            
+                        # Default is simple function name
+                        full_name = func_name
+                        
+                        # Check for class context
+                        # Structure: function_definition -> block -> class_definition
+                        parent = func_def.parent
+                        if parent and parent.type == "block":
+                            grandparent = parent.parent
+                            if grandparent and grandparent.type == "class_definition":
+                                # Find class name
+                                # class_definition has child field 'name'
+                                class_name_node = grandparent.child_by_field_name("name")
+                                if class_name_node:
+                                     class_name = content[class_name_node.start_byte:class_name_node.end_byte]
+                                     full_name = f"{class_name}.{func_name}"
+
+                        nodes.append(CallGraphNode(
+                            name=full_name,
+                            file_path=str(file_path),
+                            start_line=func_def.start_point[0] + 1,
+                            end_line=func_def.end_point[0] + 1
+                        ))
+        return nodes
+
+    def _find_calls_ast(
+        self, file_path: Path, content: str, nodes: list[CallGraphNode]
+    ) -> list[CallGraphEdge]:
+        """Find function calls inside definitions."""
+        from tree_sitter import Query, QueryCursor
+
+        edges: list[CallGraphEdge] = []
+        tree = self.parser.parse(bytes(content, "utf8"))
+
+        # Query for simple function calls and attribute calls (like yaml.load())
+        # We need to capture both the object and the method for attribute calls
+        query = Query(self.language, """
+            (call
+                function: (identifier) @func_name) @call_simple
+
+            (call
+                function: (attribute
+                    object: (identifier) @attr_obj
+                    attribute: (identifier) @attr_method)) @call_attr
+        """)
+
+        cursor = QueryCursor(query)
+        matches = cursor.matches(tree.root_node)
+
+        for match_id, captures_dict in matches:
+            callee_name = None
+            line_number = None
+
+            if "func_name" in captures_dict:
+                # Simple call: foo()
+                node = captures_dict["func_name"][0]
+                callee_name = content[node.start_byte:node.end_byte]
+                line_number = node.start_point[0] + 1
+            elif "attr_obj" in captures_dict and "attr_method" in captures_dict:
+                # Attribute call: obj.method() -> capture as "obj.method"
+                obj_node = captures_dict["attr_obj"][0]
+                method_node = captures_dict["attr_method"][0]
+                obj_name = content[obj_node.start_byte:obj_node.end_byte]
+                method_name = content[method_node.start_byte:method_node.end_byte]
+                callee_name = f"{obj_name}.{method_name}"
+                line_number = method_node.start_point[0] + 1
+
+            if callee_name and line_number:
+                # Find which function owns this call
+                caller_name = "<main>"
+                for func_node in nodes:
+                    if func_node.start_line <= line_number <= func_node.end_line:
+                        caller_name = func_node.id
+                        break
+
+                edges.append(CallGraphEdge(
+                    source=caller_name,
+                    target=callee_name,
+                    line_number=line_number,
+                    file_path=str(file_path)
+                ))
+
+        return edges
+
+    def _find_imports_regex(self, file_path: Path, content: str) -> list[ImportInfo]:
+        """Find all imports in a Python file using regex (legacy)."""
         imports: list[ImportInfo] = []
         lines = content.split("\n")
 
@@ -254,6 +581,18 @@ class PythonAnalyzer(BaseLanguageAnalyzer):
         import_info: ImportInfo,
     ) -> list[UsageLocation]:
         """Find all usages of a symbol in a Python file."""
+        if self._tree_sitter_available and self.parser:
+            return self._find_usages_ast(file_path, content, symbol, import_info)
+        return self._find_usages_regex(file_path, content, symbol, import_info)
+
+    def _find_usages_regex(
+        self,
+        file_path: Path,
+        content: str,
+        symbol: str,
+        import_info: ImportInfo,
+    ) -> list[UsageLocation]:
+        """Find usages using Regex (Legacy)."""
         usages: list[UsageLocation] = []
         lines = content.split("\n")
 
@@ -308,6 +647,107 @@ class PythonAnalyzer(BaseLanguageAnalyzer):
 
         return usages
 
+    def _find_usages_ast(
+        self,
+        file_path: Path,
+        content: str,
+        symbol: str,
+        import_info: ImportInfo,
+    ) -> list[UsageLocation]:
+        """Find usages using AST."""
+        from tree_sitter import Query, QueryCursor
+
+        usages: list[UsageLocation] = []
+        tree = self.parser.parse(bytes(content, "utf8"))
+
+        # Determine the local name of the symbol
+        if import_info.alias:
+            search_name = import_info.alias
+        elif import_info.is_from_import and symbol in import_info.names:
+            search_name = symbol
+        elif import_info.names and symbol in import_info.names:
+             search_name = symbol
+        else:
+             # import json -> search_name = json
+            search_name = import_info.module.split(".")[-1]
+
+        # Query to find identifiers with usage context
+        query = Query(self.language, """
+            (call function: (identifier) @call_func)
+            (call function: (attribute object: (identifier) @call_obj))
+            (attribute object: (identifier) @attr_obj)
+            (decorator (identifier) @decorator)
+            (decorator (call function: (identifier) @dec_call))
+            (type (identifier) @type)
+            (identifier) @ident
+        """)
+
+        cursor = QueryCursor(query)
+        matches = cursor.matches(tree.root_node)
+
+        visited_ranges = set()
+
+        for match_id, captures_dict in matches:
+             for capture_name, captured_nodes in captures_dict.items():
+                for node in captured_nodes:
+                    node_range = (node.start_byte, node.end_byte)
+                    if node_range in visited_ranges:
+                        continue
+                    
+                    found_name = content[node.start_byte:node.end_byte]
+                    if found_name != search_name:
+                        continue
+
+                    line_num = node.start_point[0] + 1
+                    if line_num == import_info.line_number:
+                        continue
+
+                    usage_type = UsageType.UNKNOWN
+                    
+                    if capture_name == "call_func":
+                        usage_type = UsageType.CALL
+                        visited_ranges.add(node_range)
+                    elif capture_name == "call_obj":
+                         usage_type = UsageType.CALL
+                         visited_ranges.add(node_range)
+                    elif capture_name == "attr_obj":
+                        usage_type = UsageType.ATTRIBUTE
+                        visited_ranges.add(node_range)
+                    elif capture_name == "decorator" or capture_name == "dec_call":
+                        usage_type = UsageType.DECORATOR
+                        visited_ranges.add(node_range)
+                    elif capture_name == "type":
+                        usage_type = UsageType.TYPE_ANNOTATION
+                        visited_ranges.add(node_range)
+                    elif capture_name == "ident":
+                        # Fallback
+                        parent = node.parent
+                        if parent:
+                            if parent.type == "call":
+                                usage_type = UsageType.CALL
+                            elif parent.type == "attribute":
+                                usage_type = UsageType.ATTRIBUTE
+                            elif parent.type in ["type", "type_alias", "typed_parameter"]:
+                                usage_type = UsageType.TYPE_ANNOTATION
+                            elif parent.type == "decorator":
+                                usage_type = UsageType.DECORATOR
+                        
+                        visited_ranges.add(node_range)
+
+                    line = content.splitlines()[line_num - 1]
+                    snippet = line.strip()
+
+                    usages.append(UsageLocation(
+                        file_path=str(file_path),
+                        line_number=line_num,
+                        column=node.start_point[1],
+                        code_snippet=snippet,
+                        usage_type=usage_type.value,
+                        symbol=symbol
+                    ))
+
+        return usages
+
 
 class JavaScriptAnalyzer(BaseLanguageAnalyzer):
     """Analyzer for JavaScript/TypeScript code."""
@@ -315,8 +755,328 @@ class JavaScriptAnalyzer(BaseLanguageAnalyzer):
     file_extensions: ClassVar[list[str]] = [".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"]
     ecosystem: ClassVar[Ecosystem] = Ecosystem.NPM
 
+    def __init__(self):
+        """Initialize JavaScript analyzer with tree-sitter."""
+        super().__init__()
+        if self._tree_sitter_available:
+            from tree_sitter import Language, Parser
+            import tree_sitter_javascript
+            
+            # Note: For strict TypeScript support we would need tree_sitter_typescript
+            # But tree_sitter_javascript handles most TS syntax gracefully for basic analysis
+            self.language = Language(tree_sitter_javascript.language())
+            self.parser = Parser(self.language)
+        else:
+            self.language = None
+            self.parser = None
+
     def find_imports(self, file_path: Path, content: str) -> list[ImportInfo]:
-        """Find all imports in a JavaScript/TypeScript file."""
+        """Find all imports in a JavaScript/TypeScript file using AST if available."""
+        if self._tree_sitter_available and self.parser:
+            return self._find_imports_ast(file_path, content)
+        return self._find_imports_regex(file_path, content)
+
+    def extract_call_graph_nodes(self, file_path: Path, content: str) -> list[CallGraphNode]:
+        """Extract function/method definitions using AST."""
+        if not self._tree_sitter_available or not self.parser:
+            return []
+            
+        return self._find_definitions_ast(file_path, content)
+
+    def extract_call_graph_edges(
+        self, file_path: Path, content: str, nodes: list[CallGraphNode]
+    ) -> list[CallGraphEdge]:
+        """Extract function calls within defined nodes."""
+        if not self._tree_sitter_available or not self.parser:
+            return []
+
+        return self._find_calls_ast(file_path, content, nodes)
+
+    def _find_imports_ast(self, file_path: Path, content: str) -> list[ImportInfo]:
+        """Find imports using tree-sitter AST."""
+        from tree_sitter import Query, QueryCursor
+
+        imports: list[ImportInfo] = []
+        tree = self.parser.parse(bytes(content, "utf8"))
+
+        def get_text(node) -> str:
+            return content[node.start_byte:node.end_byte]
+
+        # Query for ES6 imports
+        query = Query(self.language, """
+            (import_statement
+                source: (string) @source)
+
+            (import_statement
+                (import_clause
+                    (identifier) @default_import)
+                source: (string) @default_source)
+
+            (import_statement
+                (import_clause
+                    (named_imports
+                        (import_specifier
+                            name: (identifier) @named_import
+                            alias: (identifier)? @named_alias)))
+                source: (string) @named_source)
+
+            (import_statement
+                (import_clause
+                    (namespace_import
+                        (identifier) @namespace_alias))
+                source: (string) @namespace_source)
+        """)
+
+        cursor = QueryCursor(query)
+        matches = cursor.matches(tree.root_node)
+
+        for match_id, captures_dict in matches:
+            # Extract the source module
+            source_node = None
+            for key in ["source", "default_source", "named_source", "namespace_source"]:
+                if key in captures_dict:
+                    source_node = captures_dict[key][0]
+                    break
+
+            if not source_node:
+                continue
+
+            # Get module name (strip quotes)
+            module_text = get_text(source_node)
+            module = module_text.strip("'\"")
+            line = source_node.start_point[0] + 1
+
+            # Handle different import types
+            if "default_import" in captures_dict:
+                # import X from 'module'
+                default_name = get_text(captures_dict["default_import"][0])
+                imports.append(ImportInfo(
+                    module=module,
+                    names=[default_name],
+                    alias=None,
+                    is_from_import=True,
+                    line_number=line,
+                    file_path=str(file_path),
+                ))
+            elif "named_import" in captures_dict:
+                # import { X, Y as Z } from 'module'
+                named_nodes = captures_dict["named_import"]
+                alias_nodes = captures_dict.get("named_alias", [])
+
+                for i, name_node in enumerate(named_nodes):
+                    name = get_text(name_node)
+                    alias = None
+                    if i < len(alias_nodes):
+                        alias = get_text(alias_nodes[i])
+
+                    imports.append(ImportInfo(
+                        module=module,
+                        names=[name],
+                        alias=alias,
+                        is_from_import=True,
+                        line_number=line,
+                        file_path=str(file_path),
+                    ))
+            elif "namespace_alias" in captures_dict:
+                # import * as X from 'module'
+                alias = get_text(captures_dict["namespace_alias"][0])
+                imports.append(ImportInfo(
+                    module=module,
+                    names=["*"],
+                    alias=alias,
+                    is_from_import=True,
+                    line_number=line,
+                    file_path=str(file_path),
+                ))
+            else:
+                # Side-effect import: import 'module'
+                imports.append(ImportInfo(
+                    module=module,
+                    names=[],
+                    alias=None,
+                    is_from_import=True,
+                    line_number=line,
+                    file_path=str(file_path),
+                ))
+
+        # Also handle CommonJS require() statements
+        require_query = Query(self.language, """
+            (variable_declarator
+                name: (identifier) @var_name
+                value: (call_expression
+                    function: (identifier) @require_fn
+                    arguments: (arguments (string) @require_path)))
+
+            (variable_declarator
+                name: (object_pattern
+                    (shorthand_property_identifier_pattern) @destructured_name)
+                value: (call_expression
+                    function: (identifier) @require_fn2
+                    arguments: (arguments (string) @require_path2)))
+        """)
+
+        require_cursor = QueryCursor(require_query)
+        require_matches = require_cursor.matches(tree.root_node)
+
+        for match_id, captures_dict in require_matches:
+            # Check for require function
+            require_fn = captures_dict.get("require_fn", captures_dict.get("require_fn2", []))
+            if not require_fn:
+                continue
+
+            fn_name = get_text(require_fn[0])
+            if fn_name != "require":
+                continue
+
+            # Get the path
+            path_node = captures_dict.get("require_path", captures_dict.get("require_path2", []))
+            if not path_node:
+                continue
+
+            module_text = get_text(path_node[0])
+            module = module_text.strip("'\"")
+            line = path_node[0].start_point[0] + 1
+
+            if "var_name" in captures_dict:
+                # const X = require('module') - X is an alias for the whole module
+                var_name = get_text(captures_dict["var_name"][0])
+                imports.append(ImportInfo(
+                    module=module,
+                    names=[],  # Empty - no specific symbols imported
+                    alias=var_name,  # The variable is an alias for the whole module
+                    is_from_import=False,
+                    line_number=line,
+                    file_path=str(file_path),
+                ))
+            elif "destructured_name" in captures_dict:
+                # const { X, Y } = require('module')
+                for name_node in captures_dict["destructured_name"]:
+                    name = get_text(name_node)
+                    imports.append(ImportInfo(
+                        module=module,
+                        names=[name],
+                        alias=None,
+                        is_from_import=False,
+                        line_number=line,
+                        file_path=str(file_path),
+                    ))
+
+        return imports
+    
+    def _find_definitions_ast(self, file_path: Path, content: str) -> list[CallGraphNode]:
+        """Find function/class/method definitions."""
+        from tree_sitter import Query, QueryCursor
+
+        nodes: list[CallGraphNode] = []
+        tree = self.parser.parse(bytes(content, "utf8"))
+        
+        # Query for various JS function definitions
+        query = Query(self.language, """
+            (function_declaration
+                name: (identifier) @name) @func
+            (class_declaration
+                name: (identifier) @class_name
+                body: (class_body
+                    (method_definition
+                        name: (property_identifier) @method_name) @method))
+            (variable_declarator
+                name: (identifier) @var_name
+                value: (arrow_function) @arrow)
+            (variable_declarator
+                name: (identifier) @var_name
+                value: (function_expression) @anon_func)
+        """)
+        
+        cursor = QueryCursor(query)
+        matches = cursor.matches(tree.root_node)
+        
+        for match_id, captures_dict in matches:
+            for capture_name, captured_nodes in captures_dict.items():
+                for node in captured_nodes:
+                    name = ""
+                    def_node = None
+                    
+                    if capture_name == "name": # function definition
+                        name = content[node.start_byte:node.end_byte]
+                        def_node = node.parent
+                    elif capture_name == "method_name":
+                        name = content[node.start_byte:node.end_byte]
+                        def_node = node.parent
+                    elif capture_name == "var_name":
+                        # For arrow functions or anonymous functions assigned to vars
+                        name = content[node.start_byte:node.end_byte]
+                        # The parent's sibling (value) is the function body
+                        def_node = node.parent
+                        
+                    if name and def_node:
+                        nodes.append(CallGraphNode(
+                            name=name,
+                            file_path=str(file_path),
+                            start_line=def_node.start_point[0] + 1,
+                            end_line=def_node.end_point[0] + 1
+                        ))
+                
+        return nodes
+
+    def _find_calls_ast(
+        self, file_path: Path, content: str, nodes: list[CallGraphNode]
+    ) -> list[CallGraphEdge]:
+        """Find function calls inside definitions."""
+        from tree_sitter import Query, QueryCursor
+
+        edges: list[CallGraphEdge] = []
+        tree = self.parser.parse(bytes(content, "utf8"))
+
+        # Query for simple function calls and member expression calls
+        query = Query(self.language, """
+            (call_expression
+                function: (identifier) @func_name) @call_simple
+
+            (call_expression
+                function: (member_expression
+                    object: (identifier) @member_obj
+                    property: (property_identifier) @member_prop)) @call_member
+        """)
+
+        cursor = QueryCursor(query)
+        matches = cursor.matches(tree.root_node)
+
+        for match_id, captures_dict in matches:
+            callee_name = None
+            line_number = None
+
+            if "func_name" in captures_dict:
+                # Simple call: foo()
+                node = captures_dict["func_name"][0]
+                callee_name = content[node.start_byte:node.end_byte]
+                line_number = node.start_point[0] + 1
+            elif "member_obj" in captures_dict and "member_prop" in captures_dict:
+                # Member call: obj.method() -> capture as "obj.method"
+                obj_node = captures_dict["member_obj"][0]
+                prop_node = captures_dict["member_prop"][0]
+                obj_name = content[obj_node.start_byte:obj_node.end_byte]
+                prop_name = content[prop_node.start_byte:prop_node.end_byte]
+                callee_name = f"{obj_name}.{prop_name}"
+                line_number = prop_node.start_point[0] + 1
+
+            if callee_name and line_number:
+                caller_name = "<root>"
+                for func_node in nodes:
+                    if func_node.start_line <= line_number <= func_node.end_line:
+                        caller_name = func_node.id
+                        break
+
+                edges.append(CallGraphEdge(
+                    source=caller_name,
+                    target=callee_name,
+                    line_number=line_number,
+                    file_path=str(file_path)
+                ))
+
+        return edges
+
+    def _find_imports_regex(self, file_path: Path, content: str) -> list[ImportInfo]:
+        """Find all imports in a JavaScript/TypeScript file using regex (legacy)."""
         imports: list[ImportInfo] = []
         lines = content.split("\n")
 
@@ -675,6 +1435,18 @@ class GoAnalyzer(BaseLanguageAnalyzer):
 
         return usages
 
+    def extract_call_graph_nodes(self, file_path: Path, content: str) -> list[CallGraphNode]:
+        """Extract function definitions from Go file (not yet implemented)."""
+        # Go call graph extraction requires tree-sitter-go
+        # For now, return empty list
+        return []
+
+    def extract_call_graph_edges(
+        self, file_path: Path, content: str, nodes: list[CallGraphNode]
+    ) -> list[CallGraphEdge]:
+        """Extract function calls from Go file (not yet implemented)."""
+        return []
+
 
 class RubyAnalyzer(BaseLanguageAnalyzer):
     """Analyzer for Ruby code."""
@@ -771,6 +1543,18 @@ class RubyAnalyzer(BaseLanguageAnalyzer):
                     break
 
         return usages
+
+    def extract_call_graph_nodes(self, file_path: Path, content: str) -> list[CallGraphNode]:
+        """Extract function definitions from Ruby file (not yet implemented)."""
+        # Ruby call graph extraction requires tree-sitter-ruby
+        # For now, return empty list
+        return []
+
+    def extract_call_graph_edges(
+        self, file_path: Path, content: str, nodes: list[CallGraphNode]
+    ) -> list[CallGraphEdge]:
+        """Extract function calls from Ruby file (not yet implemented)."""
+        return []
 
 
 class StaticAnalyzer:

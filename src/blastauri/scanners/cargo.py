@@ -116,8 +116,6 @@ class CargoScanner(BaseScanner):
         if name == root_package:
             return None
 
-        source = pkg.get("source", "")
-
         is_direct = False
 
         is_dev = False

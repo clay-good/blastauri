@@ -506,7 +506,6 @@ class PackageMetadataAnalyzer:
 
             # Check for yanked versions
             old_release = releases.get(from_version, [])
-            new_release = releases.get(to_version, [])
 
             # Check Python version requirements
             old_requires = self._get_python_requires(old_release)

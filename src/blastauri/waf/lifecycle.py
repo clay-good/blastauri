@@ -251,9 +251,6 @@ class WafLifecycleManager:
         promotion_candidates: list[LifecycleChange] = []
         unchanged_rules: list[WafRuleState] = []
 
-        # Build lookup of current CVEs
-        current_cve_ids = {cve.id for cve in detected_cves}
-
         # Check existing rules for obsolescence
         for rule in current_state.get_active_rules():
             is_obsolete = self._check_rule_obsolete(

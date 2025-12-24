@@ -53,9 +53,6 @@ class AwsWafProvider(BaseWafProvider):
         else:
             action = "count {}"
 
-        # Build tags
-        tags_hcl = self._generate_tags(config.tags, config.cve_ids)
-
         rule_hcl = f'''
   rule {{
     name     = "{self._escape_hcl_string(config.name)}"

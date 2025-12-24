@@ -1,9 +1,5 @@
 # Blastauri
 
-[![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)](https://github.com/clay-good/blastauri)
-[![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-
 **Know what breaks before you merge.**
 
 Blastauri analyzes Renovate and Dependabot merge requests to identify breaking changes, prioritize security updates, and help you triage the flood of dependency upgrade MRs.
@@ -33,6 +29,7 @@ Blastauri runs in your CI pipeline on every Renovate/Dependabot MR and tells you
 | Where exactly? | File paths, line numbers, code snippets |
 | How risky? | Risk score 0-100 with severity labels |
 | Does it fix CVEs? | Lists CVEs fixed with severity ratings |
+| Is this CVE exploitable in MY code? | **Vulnerability reachability analysis** shows if your code actually calls vulnerable functions |
 | Can I protect myself now? | Generates WAF rules for critical CVEs |
 
 ## How It Works
@@ -59,6 +56,8 @@ Blastauri runs in CI
         |
         +---> Queries CVE databases (NVD, GitHub, OSV)
         |
+        +---> Checks vulnerability reachability (is YOUR code affected?)
+        |
         +---> Calculates risk score
         |
         v
@@ -73,6 +72,7 @@ Posts comment + applies labels
 |---------|--------------|
 | Breaking change detection | **Multi-strategy approach** (see below) |
 | Code usage detection | AST-based static analysis. Finds imports, function calls, and property access matching affected APIs. |
+| **Vulnerability reachability** | Builds call graph from your code, traces paths from entry points to vulnerable function calls. Identifies which CVEs are actually exploitable in YOUR codebase. |
 | Risk scoring | Weighted algorithm: `locations(0-30) + breaking_changes(0-30) + major_upgrade(0-20) - cves_fixed(10 each)` |
 | CVE lookup | Queries NVD, GitHub Advisories, OSV, and GitLab databases via their public APIs. |
 | WAF rule generation | Template-based Terraform generation with pattern matching for known CVE signatures. |
@@ -312,6 +312,81 @@ Blastauri proposes removing the now-obsolete rule (YOU approve)
 - SQL Injection, XSS, SSRF, XXE
 - And more...
 
+## Vulnerability Reachability Analysis
+
+**Not all vulnerabilities are created equal.** A CVE in a dependency you never actually call is low priority.
+
+Blastauri's reachability analysis goes beyond simple "dependency contains CVE" detection:
+
+```
+Your dependency has CVE-2017-18342 (PyYAML unsafe load)
+                    |
+                    v
+Does your code call yaml.load()? ─────────────> NO: SAFE TO IGNORE
+                    |                              (unreachable)
+                    v YES
+Is it called from an entry point? ────────────> Call trace shows path
+                    |
+                    v
+REACHABLE: This CVE affects YOUR code
+```
+
+### How It Works
+
+1. **Builds Call Graph**: Parses your source code using tree-sitter AST analysis
+2. **Maps Imports**: Resolves import statements to track which modules are used
+3. **Identifies Vulnerable Symbols**: Matches CVEs to specific function signatures
+4. **Traces Execution Paths**: BFS traversal from entry points to vulnerable calls
+
+### Reachability Statuses
+
+| Status | Meaning | Action |
+|--------|---------|--------|
+| `REACHABLE` | Confirmed path from entry point to vulnerable function | **Prioritize fix** |
+| `POTENTIALLY_REACHABLE` | Package imported but call path unclear | Review manually |
+| `UNREACHABLE` | Vulnerable function never called | Safe to deprioritize |
+| `UNKNOWN` | No function-level data for this CVE | Treat as potentially vulnerable |
+
+### Usage
+
+```bash
+# Scan with reachability analysis enabled
+blastauri scan ./my-project --reachability
+
+# Hide unreachable vulnerabilities (focus on real risks)
+blastauri scan ./my-project --reachability --hide-unreachable
+
+# Check reachability for specific packages
+blastauri check-reachability ./my-project --package pyyaml
+
+# Check reachability for specific CVE
+blastauri check-reachability ./my-project --cve CVE-2017-18342
+```
+
+### Example Output
+
+```
+Reachability Analysis Results
+┏━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ CVE              ┃ Package  ┃ Status     ┃ Trace                                              ┃
+┡━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ CVE-2017-18342   │ pyyaml   │ REACHABLE  │ main() -> parse_config() -> yaml.load()           │
+│ CVE-2021-23337   │ lodash   │ UNREACHABLE│ -                                                  │
+│ CVE-2021-3749    │ axios    │ REACHABLE  │ app() -> fetchData() -> axios.get()               │
+└──────────────────┴──────────┴────────────┴────────────────────────────────────────────────────┘
+
+Summary: 10 CVEs found, 2 REACHABLE, 8 safe to ignore
+```
+
+### Supported Languages
+
+| Language | Import Resolution | Call Graph | Status |
+|----------|------------------|------------|--------|
+| Python | Full (import, from X import Y, aliases) | Full | Production |
+| JavaScript/TypeScript | Full (ES6 imports, CommonJS require) | Full | Production |
+| Go | Basic | Basic | Beta |
+| Ruby | Basic | - | Experimental |
+
 ## Installation
 
 ### pip (recommended)
@@ -346,11 +421,26 @@ blastauri analyze --repo owner/repo --pr 456
 # Scan local directory for vulnerabilities
 blastauri scan ./my-project
 
+# Scan with reachability analysis
+blastauri scan ./my-project --reachability
+
+# Scan and hide unreachable vulnerabilities (show only real risks)
+blastauri scan ./my-project --reachability --hide-unreachable
+
 # Scan with JSON output
 blastauri scan ./my-project --format json --output report.json
 
 # Scan with severity filter
 blastauri scan ./my-project --severity high
+
+# Check vulnerability reachability
+blastauri check-reachability ./my-project
+
+# Check reachability for specific CVE
+blastauri check-reachability ./my-project --cve CVE-2017-18342
+
+# Check reachability for specific package
+blastauri check-reachability ./my-project --package pyyaml
 
 # Generate WAF rules for detected CVEs
 blastauri waf generate ./my-project --provider aws --output ./terraform/waf
@@ -431,10 +521,13 @@ scanner:
 - **Breaking change detection** uses 6 strategies (semver, curated database, registry metadata, API diff, heuristics, changelogs) but may miss some changes for packages without TypeScript definitions, `__all__` exports, or that aren't in our curated database.
 - **CVE data** has inherent lag. NVD is often days behind initial disclosure.
 - **Static analysis** won't catch dynamic imports, metaprogramming, or runtime-only usage.
+- **Vulnerability reachability** requires known vulnerable function signatures. The built-in knowledge base currently includes **60 high-profile CVEs** across Python, npm, Maven, and Go. CVEs without function-level data in our knowledge base will show as "UNKNOWN" status. Dynamic dispatch and reflection may cause false negatives. Version range filtering ensures only relevant CVEs for your installed versions are checked.
+- **Reachability analysis** uses full module-qualified matching (e.g., `yaml.load` not just `load`) to minimize false positives. The analysis requires calls to be resolved to their import source before matching against vulnerability signatures.
 - **WAF rules** are mitigations, not fixes. They can have false positives and should be tested before deployed and monitored after being deployed.
 - **API diff analysis** requires downloading package tarballs, which adds latency (~2-5s per version pair).
 - **GitHub repository checks** are rate-limited without authentication (60 requests/hour). Most analyses stay well within this limit.
 - **Python type analysis** requires Python 3 syntax. Python 2-only packages may have limited analysis.
+- **Module name collisions** may occur in projects with duplicate filename stems (e.g., `src/utils.py` and `lib/utils.py`). The first file found is used for resolution.
 
 ## Documentation
 

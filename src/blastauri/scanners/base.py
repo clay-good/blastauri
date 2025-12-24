@@ -1,5 +1,6 @@
 """Base scanner interface for dependency parsing."""
 
+import fnmatch
 from abc import ABC, abstractmethod
 from datetime import datetime
 from pathlib import Path
@@ -54,10 +55,7 @@ class BaseScanner(ABC):
         """
         filename = path.name
         for pattern in self.lockfile_patterns:
-            if pattern.startswith("*"):
-                if filename.endswith(pattern[1:]):
-                    return True
-            elif filename == pattern:
+            if fnmatch.fnmatch(filename, pattern):
                 return True
         return False
 

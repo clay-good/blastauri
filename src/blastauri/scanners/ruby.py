@@ -68,7 +68,6 @@ class RubyScanner(BaseScanner):
 
         current_section: str | None = None
         in_specs = False
-        current_indent = 0
 
         lines = content.split("\n")
 
@@ -94,8 +93,6 @@ class RubyScanner(BaseScanner):
                 continue
 
             if current_section in ("GEM", "GIT", "PATH") and in_specs:
-                indent = len(line) - len(line.lstrip())
-
                 gem_match = re.match(r"^([a-zA-Z0-9_-]+)\s+\(([^)]+)\)", stripped)
                 if gem_match:
                     name = gem_match.group(1).lower()
@@ -104,7 +101,6 @@ class RubyScanner(BaseScanner):
                     version = version.split(",")[0].strip()
 
                     all_gems[name] = version
-                    current_indent = indent
 
         for name, version in all_gems.items():
             is_direct = name in direct_deps

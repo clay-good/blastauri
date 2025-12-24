@@ -45,6 +45,8 @@ dependencies = [
     "PyGithub>=2.1.0",
     "gitpython>=3.1.0",
     "tree-sitter>=0.21.0",
+    "tree-sitter-python>=0.21.0",
+    "tree-sitter-javascript>=0.21.0",
     "pyyaml>=6.0.0",
     "toml>=0.10.0",
 ]
@@ -163,10 +165,12 @@ addopts = [
     "--cov-report=xml",
     "--cov-fail-under=50",
 ]
-asyncio_mode = "auto"
 filterwarnings = [
     "ignore::DeprecationWarning",
 ]
+
+[tool.pytest-asyncio]
+mode = "auto"
 
 [tool.coverage.run]
 source = ["src/blastauri"]

@@ -455,7 +455,6 @@ class GitHubClient:
             labels: List of label names to add.
         """
         repo = self.get_repository(repo_full_name)
-        pr = repo.get_pull(pr_number)
         issue = repo.get_issue(pr_number)
 
         for label in labels:

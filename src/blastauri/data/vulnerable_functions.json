@@ -1,0 +1,594 @@
+[
+    {
+        "cve_id": "CVE-2017-18342",
+        "package_name": "pyyaml",
+        "ecosystem": "pypi",
+        "vulnerable_version_range": "<5.4",
+        "vulnerable_symbols": [
+            "yaml.load",
+            "yaml.unsafe_load"
+        ]
+    },
+    {
+        "cve_id": "CVE-2019-11324",
+        "package_name": "urllib3",
+        "ecosystem": "pypi",
+        "vulnerable_version_range": "<1.24.3",
+        "vulnerable_symbols": [
+            "urllib3.util.ssl_.create_urllib3_context",
+            "urllib3.util.ssl_.resolve_cert_reqs"
+        ]
+    },
+    {
+        "cve_id": "CVE-2021-44228",
+        "package_name": "log4j-core",
+        "ecosystem": "maven",
+        "vulnerable_version_range": ">=2.0-beta9,<2.17.0",
+        "vulnerable_symbols": [
+            "org.apache.logging.log4j.Logger.info",
+            "org.apache.logging.log4j.Logger.error",
+            "org.apache.logging.log4j.Logger.debug",
+            "org.apache.logging.log4j.Logger.warn"
+        ]
+    },
+    {
+        "cve_id": "CVE-2019-16935",
+        "package_name": "python",
+        "ecosystem": "pypi",
+        "vulnerable_version_range": "<3.8.0",
+        "vulnerable_symbols": [
+            "xmlrpc.server.DocXMLRPCServer"
+        ]
+    },
+    {
+        "cve_id": "CVE-2020-8203",
+        "package_name": "lodash",
+        "ecosystem": "npm",
+        "vulnerable_version_range": "<4.17.19",
+        "vulnerable_symbols": [
+            "_.template",
+            "lodash.template",
+            "_.merge",
+            "lodash.merge",
+            "_.mergeWith",
+            "lodash.mergeWith",
+            "_.set",
+            "lodash.set",
+            "_.setWith",
+            "lodash.setWith"
+        ]
+    },
+    {
+        "cve_id": "CVE-2021-23337",
+        "package_name": "lodash",
+        "ecosystem": "npm",
+        "vulnerable_version_range": "<4.17.21",
+        "vulnerable_symbols": [
+            "_.template",
+            "lodash.template"
+        ]
+    },
+    {
+        "cve_id": "CVE-2019-10744",
+        "package_name": "lodash",
+        "ecosystem": "npm",
+        "vulnerable_version_range": "<4.17.12",
+        "vulnerable_symbols": [
+            "_.defaultsDeep",
+            "lodash.defaultsDeep"
+        ]
+    },
+    {
+        "cve_id": "CVE-2021-3749",
+        "package_name": "axios",
+        "ecosystem": "npm",
+        "vulnerable_version_range": "<0.21.2",
+        "vulnerable_symbols": [
+            "axios",
+            "axios.get",
+            "axios.post",
+            "axios.put",
+            "axios.delete",
+            "axios.request"
+        ]
+    },
+    {
+        "cve_id": "CVE-2021-32640",
+        "package_name": "ws",
+        "ecosystem": "npm",
+        "vulnerable_version_range": "<7.4.6",
+        "vulnerable_symbols": [
+            "WebSocket",
+            "WebSocket.send"
+        ]
+    },
+    {
+        "cve_id": "CVE-2020-7598",
+        "package_name": "minimist",
+        "ecosystem": "npm",
+        "vulnerable_version_range": "<1.2.2",
+        "vulnerable_symbols": [
+            "minimist"
+        ]
+    },
+    {
+        "cve_id": "CVE-2022-0778",
+        "package_name": "openssl",
+        "ecosystem": "pypi",
+        "vulnerable_version_range": "<1.1.1n",
+        "vulnerable_symbols": [
+            "ssl.SSLContext",
+            "ssl.wrap_socket"
+        ]
+    },
+    {
+        "cve_id": "CVE-2021-41496",
+        "package_name": "numpy",
+        "ecosystem": "pypi",
+        "vulnerable_version_range": "<1.22.0",
+        "vulnerable_symbols": [
+            "numpy.load"
+        ]
+    },
+    {
+        "cve_id": "CVE-2022-42969",
+        "package_name": "py",
+        "ecosystem": "pypi",
+        "vulnerable_version_range": "<1.11.0",
+        "vulnerable_symbols": [
+            "py.path.svnwc"
+        ]
+    },
+    {
+        "cve_id": "CVE-2020-36242",
+        "package_name": "cryptography",
+        "ecosystem": "pypi",
+        "vulnerable_version_range": "<3.3.2",
+        "vulnerable_symbols": [
+            "cryptography.hazmat.primitives.ciphers.modes.GCM"
+        ]
+    },
+    {
+        "cve_id": "CVE-2021-33503",
+        "package_name": "urllib3",
+        "ecosystem": "pypi",
+        "vulnerable_version_range": "<1.26.5",
+        "vulnerable_symbols": [
+            "urllib3.request",
+            "urllib3.PoolManager.request"
+        ]
+    },
+    {
+        "cve_id": "CVE-2021-28363",
+        "package_name": "urllib3",
+        "ecosystem": "pypi",
+        "vulnerable_version_range": "<1.26.4",
+        "vulnerable_symbols": [
+            "urllib3.util.ssl_.ssl_wrap_socket"
+        ]
+    },
+    {
+        "cve_id": "CVE-2019-1010083",
+        "package_name": "flask",
+        "ecosystem": "pypi",
+        "vulnerable_version_range": "<1.0",
+        "vulnerable_symbols": [
+            "flask.Flask.run"
+        ]
+    },
+    {
+        "cve_id": "CVE-2023-37920",
+        "package_name": "certifi",
+        "ecosystem": "pypi",
+        "vulnerable_version_range": "<2023.7.22",
+        "vulnerable_symbols": [
+            "certifi.where",
+            "certifi.contents"
+        ]
+    },
+    {
+        "cve_id": "CVE-2022-23491",
+        "package_name": "certifi",
+        "ecosystem": "pypi",
+        "vulnerable_version_range": "<2022.12.7",
+        "vulnerable_symbols": [
+            "certifi.where",
+            "certifi.contents"
+        ]
+    },
+    {
+        "cve_id": "CVE-2018-20060",
+        "package_name": "urllib3",
+        "ecosystem": "pypi",
+        "vulnerable_version_range": "<1.24.1",
+        "vulnerable_symbols": [
+            "urllib3.request"
+        ]
+    },
+    {
+        "cve_id": "CVE-2020-25659",
+        "package_name": "cryptography",
+        "ecosystem": "pypi",
+        "vulnerable_version_range": "<3.2",
+        "vulnerable_symbols": [
+            "cryptography.hazmat.primitives.asymmetric.rsa.generate_private_key"
+        ]
+    },
+    {
+        "cve_id": "CVE-2020-8945",
+        "package_name": "proglottis/gpgme",
+        "ecosystem": "go",
+        "vulnerable_version_range": "<0.1.1",
+        "vulnerable_symbols": [
+            "gpgme.Context.Decrypt"
+        ]
+    },
+    {
+        "cve_id": "CVE-2020-26160",
+        "package_name": "github.com/dgrijalva/jwt-go",
+        "ecosystem": "go",
+        "vulnerable_version_range": "<4.0.0-preview1",
+        "vulnerable_symbols": [
+            "jwt.Parse",
+            "jwt.ParseWithClaims"
+        ]
+    },
+    {
+        "cve_id": "CVE-2022-21698",
+        "package_name": "github.com/prometheus/client_golang",
+        "ecosystem": "go",
+        "vulnerable_version_range": "<1.12.1",
+        "vulnerable_symbols": [
+            "promhttp.Handler"
+        ]
+    },
+    {
+        "cve_id": "CVE-2022-22965",
+        "package_name": "spring-webmvc",
+        "ecosystem": "maven",
+        "vulnerable_version_range": "<5.3.18",
+        "vulnerable_symbols": [
+            "org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter",
+            "org.springframework.beans.BeanWrapper"
+        ]
+    },
+    {
+        "cve_id": "CVE-2022-42889",
+        "package_name": "commons-text",
+        "ecosystem": "maven",
+        "vulnerable_version_range": "<1.10.0",
+        "vulnerable_symbols": [
+            "org.apache.commons.text.StringSubstitutor"
+        ]
+    },
+    {
+        "cve_id": "CVE-2021-21315",
+        "package_name": "systeminformation",
+        "ecosystem": "npm",
+        "vulnerable_version_range": "<5.3.1",
+        "vulnerable_symbols": [
+            "si.inetLatency",
+            "si.services"
+        ]
+    },
+    {
+        "cve_id": "CVE-2022-24999",
+        "package_name": "qs",
+        "ecosystem": "npm",
+        "vulnerable_version_range": "<6.10.3",
+        "vulnerable_symbols": [
+            "qs.parse",
+            "qs"
+        ]
+    },
+    {
+        "cve_id": "CVE-2021-23386",
+        "package_name": "dns-packet",
+        "ecosystem": "npm",
+        "vulnerable_version_range": "<5.2.2",
+        "vulnerable_symbols": [
+            "dns-packet.decode",
+            "dns-packet.encode"
+        ]
+    },
+    {
+        "cve_id": "CVE-2022-37616",
+        "package_name": "xmldom",
+        "ecosystem": "npm",
+        "vulnerable_version_range": "<0.7.6",
+        "vulnerable_symbols": [
+            "xmldom.DOMParser",
+            "DOMParser"
+        ]
+    },
+    {
+        "cve_id": "CVE-2021-42574",
+        "package_name": "terser",
+        "ecosystem": "npm",
+        "vulnerable_version_range": "<5.14.2",
+        "vulnerable_symbols": [
+            "terser.minify"
+        ]
+    },
+    {
+        "cve_id": "CVE-2023-45857",
+        "package_name": "axios",
+        "ecosystem": "npm",
+        "vulnerable_version_range": "<1.6.0",
+        "vulnerable_symbols": [
+            "axios.request",
+            "axios.get",
+            "axios.post"
+        ]
+    },
+    {
+        "cve_id": "CVE-2021-3807",
+        "package_name": "ansi-regex",
+        "ecosystem": "npm",
+        "vulnerable_version_range": "<6.0.1",
+        "vulnerable_symbols": [
+            "ansi-regex"
+        ]
+    },
+    {
+        "cve_id": "CVE-2023-32681",
+        "package_name": "requests",
+        "ecosystem": "pypi",
+        "vulnerable_version_range": "<2.31.0",
+        "vulnerable_symbols": [
+            "requests.get",
+            "requests.post",
+            "requests.put",
+            "requests.Session"
+        ]
+    },
+    {
+        "cve_id": "CVE-2024-22195",
+        "package_name": "jinja2",
+        "ecosystem": "pypi",
+        "vulnerable_version_range": "<3.1.3",
+        "vulnerable_symbols": [
+            "jinja2.Environment",
+            "jinja2.Template"
+        ]
+    },
+    {
+        "cve_id": "CVE-2022-40897",
+        "package_name": "setuptools",
+        "ecosystem": "pypi",
+        "vulnerable_version_range": "<65.5.1",
+        "vulnerable_symbols": [
+            "setuptools.setup",
+            "pkg_resources.require"
+        ]
+    },
+    {
+        "cve_id": "CVE-2023-36632",
+        "package_name": "python",
+        "ecosystem": "pypi",
+        "vulnerable_version_range": "<3.11.4",
+        "vulnerable_symbols": [
+            "email.utils.parseaddr"
+        ]
+    },
+    {
+        "cve_id": "CVE-2023-44487",
+        "package_name": "aiohttp",
+        "ecosystem": "pypi",
+        "vulnerable_version_range": "<3.9.0",
+        "vulnerable_symbols": [
+            "aiohttp.ClientSession",
+            "aiohttp.request"
+        ]
+    },
+    {
+        "cve_id": "CVE-2023-29824",
+        "package_name": "scipy",
+        "ecosystem": "pypi",
+        "vulnerable_version_range": "<1.10.0",
+        "vulnerable_symbols": [
+            "scipy.io.loadmat"
+        ]
+    },
+    {
+        "cve_id": "CVE-2023-25577",
+        "package_name": "werkzeug",
+        "ecosystem": "pypi",
+        "vulnerable_version_range": "<2.2.3",
+        "vulnerable_symbols": [
+            "werkzeug.datastructures.Headers",
+            "werkzeug.formparser.FormDataParser"
+        ]
+    },
+    {
+        "cve_id": "CVE-2022-29217",
+        "package_name": "pyjwt",
+        "ecosystem": "pypi",
+        "vulnerable_version_range": "<2.4.0",
+        "vulnerable_symbols": [
+            "jwt.decode",
+            "jwt.encode"
+        ]
+    },
+    {
+        "cve_id": "CVE-2021-29921",
+        "package_name": "python",
+        "ecosystem": "pypi",
+        "vulnerable_version_range": "<3.9.5",
+        "vulnerable_symbols": [
+            "ipaddress.ip_address",
+            "ipaddress.ip_network"
+        ]
+    },
+    {
+        "cve_id": "CVE-2023-5752",
+        "package_name": "pip",
+        "ecosystem": "pypi",
+        "vulnerable_version_range": "<23.3",
+        "vulnerable_symbols": [
+            "pip.main",
+            "pip._internal.commands.install"
+        ]
+    },
+    {
+        "cve_id": "CVE-2022-35920",
+        "package_name": "sanic",
+        "ecosystem": "pypi",
+        "vulnerable_version_range": "<22.6.1",
+        "vulnerable_symbols": [
+            "sanic.request.Request",
+            "sanic.response.json"
+        ]
+    },
+    {
+        "cve_id": "CVE-2022-24785",
+        "package_name": "moment",
+        "ecosystem": "npm",
+        "vulnerable_version_range": "<2.29.2",
+        "vulnerable_symbols": [
+            "moment",
+            "moment.locale"
+        ]
+    },
+    {
+        "cve_id": "CVE-2021-23358",
+        "package_name": "underscore",
+        "ecosystem": "npm",
+        "vulnerable_version_range": "<1.13.1",
+        "vulnerable_symbols": [
+            "_.template",
+            "underscore.template"
+        ]
+    },
+    {
+        "cve_id": "CVE-2022-25858",
+        "package_name": "terser",
+        "ecosystem": "npm",
+        "vulnerable_version_range": "<4.8.1",
+        "vulnerable_symbols": [
+            "Terser.minify"
+        ]
+    },
+    {
+        "cve_id": "CVE-2023-26115",
+        "package_name": "word-wrap",
+        "ecosystem": "npm",
+        "vulnerable_version_range": "<1.2.4",
+        "vulnerable_symbols": [
+            "wrap"
+        ]
+    },
+    {
+        "cve_id": "CVE-2022-31129",
+        "package_name": "moment",
+        "ecosystem": "npm",
+        "vulnerable_version_range": "<2.29.4",
+        "vulnerable_symbols": [
+            "moment.duration"
+        ]
+    },
+    {
+        "cve_id": "CVE-2023-28155",
+        "package_name": "request",
+        "ecosystem": "npm",
+        "vulnerable_version_range": "<2.88.0",
+        "vulnerable_symbols": [
+            "request",
+            "request.get",
+            "request.post"
+        ]
+    },
+    {
+        "cve_id": "CVE-2023-45133",
+        "package_name": "@babel/traverse",
+        "ecosystem": "npm",
+        "vulnerable_version_range": "<7.23.2",
+        "vulnerable_symbols": [
+            "traverse",
+            "babel.traverse"
+        ]
+    },
+    {
+        "cve_id": "CVE-2020-14343",
+        "package_name": "pyyaml",
+        "ecosystem": "pypi",
+        "vulnerable_version_range": "<5.4",
+        "vulnerable_symbols": [
+            "yaml.load",
+            "yaml.full_load",
+            "yaml.unsafe_load"
+        ]
+    },
+    {
+        "cve_id": "CVE-2022-34305",
+        "package_name": "tomcat-embed-core",
+        "ecosystem": "maven",
+        "vulnerable_version_range": "<9.0.65",
+        "vulnerable_symbols": [
+            "org.apache.catalina.connector.Request"
+        ]
+    },
+    {
+        "cve_id": "CVE-2022-22976",
+        "package_name": "spring-security-core",
+        "ecosystem": "maven",
+        "vulnerable_version_range": "<5.6.4",
+        "vulnerable_symbols": [
+            "org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder"
+        ]
+    },
+    {
+        "cve_id": "CVE-2023-20860",
+        "package_name": "spring-webmvc",
+        "ecosystem": "maven",
+        "vulnerable_version_range": "<5.3.26",
+        "vulnerable_symbols": [
+            "org.springframework.web.servlet.handler.HandlerMappingIntrospector"
+        ]
+    },
+    {
+        "cve_id": "CVE-2022-42003",
+        "package_name": "jackson-databind",
+        "ecosystem": "maven",
+        "vulnerable_version_range": "<2.14.0",
+        "vulnerable_symbols": [
+            "com.fasterxml.jackson.databind.ObjectMapper.readValue"
+        ]
+    },
+    {
+        "cve_id": "CVE-2021-42392",
+        "package_name": "h2",
+        "ecosystem": "maven",
+        "vulnerable_version_range": "<2.0.206",
+        "vulnerable_symbols": [
+            "org.h2.tools.Server"
+        ]
+    },
+    {
+        "cve_id": "CVE-2021-34434",
+        "package_name": "eclipse-mosq",
+        "ecosystem": "go",
+        "vulnerable_version_range": "<2.0.12",
+        "vulnerable_symbols": [
+            "mosquitto.Client"
+        ]
+    },
+    {
+        "cve_id": "CVE-2024-21626",
+        "package_name": "github.com/opencontainers/runc",
+        "ecosystem": "go",
+        "vulnerable_version_range": "<1.1.12",
+        "vulnerable_symbols": [
+            "runc.Run"
+        ]
+    },
+    {
+        "cve_id": "CVE-2023-2650",
+        "package_name": "github.com/golang/go",
+        "ecosystem": "go",
+        "vulnerable_version_range": "<1.20.5",
+        "vulnerable_symbols": [
+            "crypto/tls.Dial"
+        ]
+    }
+]

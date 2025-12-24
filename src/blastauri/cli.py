@@ -1,9 +1,11 @@
 """Command-line interface for blastauri."""
 
+from __future__ import annotations
+
 import asyncio
 import json
 from pathlib import Path
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
 
 import typer
 from rich.console import Console
@@ -11,6 +13,13 @@ from rich.table import Table
 
 from blastauri import __version__
 from blastauri.utils.logging import configure_logging, get_logger
+from blastauri.analysis.static_analyzer import StaticAnalyzer
+from blastauri.analysis.reachability import ReachabilityAnalyzer
+from blastauri.analysis.vulnerability_kb import VulnerabilityKB
+
+if TYPE_CHECKING:
+    from blastauri.core.models import BreakingChangeType, Severity
+
 
 app = typer.Typer(
     name="blastauri",
@@ -268,7 +277,7 @@ def analyze(
 
             # Apply results to MR
             if comment or label:
-                await_result = asyncio.run(
+                asyncio.run(
                     analyzer.apply_analysis_result(project, mr, result)
                 )
                 if comment and result.comment_body:
@@ -363,7 +372,7 @@ def analyze(
 
             # Apply results to PR
             if comment or label:
-                await_result = asyncio.run(
+                asyncio.run(
                     analyzer.apply_analysis_result(repo, pr, result)
                 )
                 if comment and result.comment_body:
@@ -561,7 +570,7 @@ def _run_dry_run_analysis(output: Path | None = None) -> None:
     console.print("[dim]Run with --project/--mr or --repo/--pr to analyze a real MR/PR.[/dim]")
 
 
-def _severity_color(severity: "Severity") -> str:
+def _severity_color(severity: Severity) -> str:
     """Get color for severity level."""
     from blastauri.core.models import Severity
     return {
@@ -574,7 +583,7 @@ def _severity_color(severity: "Severity") -> str:
     }.get(severity, "white")
 
 
-def _change_type_color(change_type: "BreakingChangeType") -> str:
+def _change_type_color(change_type: BreakingChangeType) -> str:
     """Get color for breaking change type."""
     from blastauri.core.models import BreakingChangeType
     return {
@@ -626,6 +635,21 @@ def scan(
             help="Minimum severity to report (critical, high, medium, low).",
         ),
     ] = "low",
+    check_reachability_opt: Annotated[
+        bool,
+        typer.Option(
+            "--reachability",
+            "-r",
+            help="Enable vulnerability reachability analysis.",
+        ),
+    ] = False,
+    hide_unreachable: Annotated[
+        bool,
+        typer.Option(
+            "--hide-unreachable",
+            help="Hide vulnerabilities that are confirmed unreachable.",
+        ),
+    ] = False,
 ) -> None:
     """Scan a directory for dependencies and known vulnerabilities."""
     # Use stderr for status messages when outputting JSON to keep stdout clean
@@ -655,20 +679,97 @@ def scan(
 
         status_console.print(f"Found {len(all_dependencies)} dependencies")
 
+        # Perform reachability analysis if requested
+        reachability_results = {}
+        if check_reachability_opt:
+            status_console.print("[cyan]Analyzing vulnerability reachability...[/cyan]")
+
+            kb = VulnerabilityKB()
+            analyzer = StaticAnalyzer()
+            reachability = ReachabilityAnalyzer(analyzer)
+
+            # Collect source files
+            files_to_scan = []
+            for ext in ["**/*.py", "**/*.js", "**/*.ts", "**/*.jsx", "**/*.tsx"]:
+                files_to_scan.extend(path.glob(ext))
+
+            # Filter out bulky directories
+            files_to_scan = [
+                f for f in files_to_scan
+                if "node_modules" not in str(f)
+                and ".venv" not in str(f)
+                and "venv" not in str(f)
+            ]
+
+            if files_to_scan:
+                status_console.print(f"Parsing {len(files_to_scan)} source files...")
+                reachability.build_graph(files_to_scan)
+
+                # Check each dependency for known vulnerabilities (with version filtering)
+                for dep in all_dependencies:
+                    # Pass version to filter only vulnerabilities affecting this version
+                    sigs = kb.get_signatures_for_package(dep.name, dep.ecosystem, dep.version)
+                    for sig in sigs:
+                        result = reachability.analyze_vulnerability(sig)
+                        key = (dep.name, sig.cve_id)
+                        reachability_results[key] = {
+                            "status": result.status,
+                            "is_reachable": result.is_reachable,
+                            "call_trace": result.call_trace,
+                            "vulnerable_symbols": sig.vulnerable_symbols,
+                            "version": dep.version,
+                            "vulnerable_range": sig.vulnerable_version_range,
+                        }
+
+                reachable_count = sum(1 for r in reachability_results.values() if r["is_reachable"])
+                unreachable_count = sum(1 for r in reachability_results.values() if not r["is_reachable"])
+                status_console.print(
+                    f"Reachability: [red]{reachable_count} reachable[/red], "
+                    f"[green]{unreachable_count} unreachable[/green]"
+                )
+
         if format == "table":
             table = Table(title="Dependencies")
             table.add_column("Name", style="cyan")
             table.add_column("Version", style="green")
             table.add_column("Ecosystem", style="yellow")
             table.add_column("Direct", style="blue")
+            if check_reachability_opt:
+                table.add_column("Reachability", style="bold")
 
             for dep in all_dependencies[:50]:  # Limit display
-                table.add_row(
+                row = [
                     dep.name,
                     dep.version,
                     dep.ecosystem.value,
                     "Yes" if dep.is_direct else "No",
-                )
+                ]
+
+                if check_reachability_opt:
+                    # Find any reachability status for this dep
+                    dep_reachability = [
+                        v for k, v in reachability_results.items()
+                        if k[0] == dep.name
+                    ]
+                    if dep_reachability:
+                        # Show the most severe status
+                        if any(r["is_reachable"] for r in dep_reachability):
+                            row.append("[red]REACHABLE[/red]")
+                        else:
+                            row.append("[green]SAFE[/green]")
+                    else:
+                        row.append("[dim]N/A[/dim]")
+
+                # Apply hide_unreachable filter
+                if hide_unreachable and check_reachability_opt:
+                    dep_reachability = [
+                        v for k, v in reachability_results.items()
+                        if k[0] == dep.name
+                    ]
+                    if dep_reachability and not any(r["is_reachable"] for r in dep_reachability):
+                        continue  # Skip unreachable deps
+
+                table.add_row(*row)
 
             console.print(table)
 
@@ -690,6 +791,28 @@ def scan(
                 "total": len(all_dependencies),
             }
 
+            if check_reachability_opt:
+                result_data["reachability"] = {
+                    f"{k[0]}:{k[1]}": {
+                        "package": k[0],
+                        "cve_id": k[1],
+                        "status": v["status"],
+                        "is_reachable": v["is_reachable"],
+                        "call_trace": v["call_trace"],
+                        "vulnerable_symbols": v["vulnerable_symbols"],
+                        "version": v.get("version", ""),
+                        "vulnerable_range": v.get("vulnerable_range", ""),
+                        "safe_to_ignore": not v["is_reachable"],
+                    }
+                    for k, v in reachability_results.items()
+                    if not (hide_unreachable and not v["is_reachable"])
+                }
+                result_data["reachability_summary"] = {
+                    "total_checked": len(reachability_results),
+                    "reachable": sum(1 for r in reachability_results.values() if r["is_reachable"]),
+                    "unreachable": sum(1 for r in reachability_results.values() if not r["is_reachable"]),
+                }
+
             if output:
                 output.write_text(json.dumps(result_data, indent=2))
                 status_console.print(f"Results written to: {output}")
@@ -703,6 +826,99 @@ def scan(
         console.print(f"[red]Scan error: {e}[/red]")
         raise typer.Exit(code=1)
 
+
+@app.command("check-reachability")
+def check_reachability(
+    path: Annotated[
+        Path,
+        typer.Argument(
+            help="Path to directory to analyze.",
+            exists=True,
+            file_okay=False,
+            dir_okay=True,
+            readable=True,
+        ),
+    ] = Path(),
+    cve: Annotated[
+        str | None,
+        typer.Option(
+            "--cve",
+            help="Specific CVE ID to check reachability for.",
+        ),
+    ] = None,
+    package: Annotated[
+        str | None,
+        typer.Option(
+            "--package",
+            help="Specific package name to check.",
+        ),
+    ] = None,
+) -> None:
+    """Check if vulnerable functions in dependencies are reachable from your code."""
+    console.print(f"[bold cyan]Analyzing reachability in {path}...[/bold cyan]")
+
+    # 1. Load Knowledge Base
+    kb = VulnerabilityKB()
+    console.print(f"Loaded {len(kb.signatures)} vulnerability signatures.")
+
+    # 2. Build Call Graph
+    console.print("Building call graph (this may take a moment)...")
+    analyzer = StaticAnalyzer()
+    reachability = ReachabilityAnalyzer(analyzer)
+    
+    # Collect all scannable files
+    files_to_scan = []
+    for ext in ["**/*.py", "**/*.js", "**/*.ts", "**/*.jsx", "**/*.tsx"]:
+        files_to_scan.extend(path.glob(ext))
+    
+    # Filter out potential bulky dirs if simple glob picked them up (though analyzer handles excludes too)
+    files_to_scan = [f for f in files_to_scan if "node_modules" not in str(f) and ".venv" not in str(f)]
+
+    console.print(f"Parsing {len(files_to_scan)} source files...")
+    reachability.build_graph(files_to_scan)
+    
+    console.print(f"Graph built: {len(reachability.call_graph.nodes)} nodes, {len(reachability.call_graph.edges)} edges.")
+
+    # 3. Identify Vulnerabilities to Check
+    signatures_to_check = []
+    
+    if cve:
+        signatures_to_check = [s for s in kb.signatures if s.cve_id == cve]
+    elif package:
+        signatures_to_check = [s for s in kb.signatures if s.package_name == package]
+    else:
+        # Check all known signatures (in a real app, this would be filtered by the scan results first)
+        signatures_to_check = kb.signatures
+
+    if not signatures_to_check:
+        console.print("[yellow]No matching vulnerability signatures found in KB.[/yellow]")
+        return
+        
+    console.print(f"Checking reachability for {len(signatures_to_check)} vulnerabilities...")
+
+    # 4. Run Analysis
+    table = Table(title="Reachability Analysis Results")
+    table.add_column("CVE", style="cyan")
+    table.add_column("Package", style="green")
+    table.add_column("Status", style="bold")
+    table.add_column("Trace", style="dim")
+
+    for sig in signatures_to_check:
+        result = reachability.analyze_vulnerability(sig)
+        
+        status_color = "red" if result.is_reachable else "green"
+        status_text = f"[{status_color}]{result.status}[/{status_color}]"
+        
+        trace_text = " -> ".join(result.call_trace) if result.call_trace else "-"
+        
+        table.add_row(
+            sig.cve_id,
+            sig.package_name,
+            status_text,
+            trace_text
+        )
+
+    console.print(table)
 
 @waf_app.command("generate")
 def waf_generate(

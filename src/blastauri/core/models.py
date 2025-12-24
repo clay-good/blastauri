@@ -43,6 +43,22 @@ class BreakingChangeType(str, Enum):
     MAJOR_VERSION = "major_version"
 
 
+class ReachabilityStatus(str, Enum):
+    """Status of vulnerability reachability analysis."""
+
+    REACHABLE = "reachable"
+    """Confirmed execution path from user code to vulnerable function."""
+
+    POTENTIALLY_REACHABLE = "potentially_reachable"
+    """Package is imported but exact call path is unclear."""
+
+    UNREACHABLE = "unreachable"
+    """Dependency installed but vulnerable function is never called."""
+
+    UNKNOWN = "unknown"
+    """No function-level data available for this CVE."""
+
+
 class Dependency(BaseModel):
     """A single dependency parsed from a lockfile."""
 
@@ -123,6 +139,29 @@ class ImpactedLocation(BaseModel):
     suggested_fix: str | None = None
 
 
+class VulnerabilityReachability(BaseModel):
+    """Reachability analysis result for a specific CVE."""
+
+    cve_id: str = Field(..., description="CVE identifier")
+    package_name: str = Field(..., description="Package containing the vulnerability")
+    status: ReachabilityStatus = Field(
+        default=ReachabilityStatus.UNKNOWN,
+        description="Reachability status"
+    )
+    call_trace: list[str] = Field(
+        default_factory=list,
+        description="Call trace from entry point to vulnerable function"
+    )
+    vulnerable_symbols: list[str] = Field(
+        default_factory=list,
+        description="Vulnerable function signatures that were checked"
+    )
+    is_safe_to_ignore: bool = Field(
+        default=False,
+        description="True if vulnerability is confirmed unreachable"
+    )
+
+
 class UpgradeImpact(BaseModel):
     """Impact analysis for a single dependency upgrade."""
 
@@ -136,6 +175,10 @@ class UpgradeImpact(BaseModel):
     cves_fixed: list[CVE] = Field(default_factory=list)
     risk_score: int = Field(default=0, ge=0, le=100)
     severity: Severity = Severity.LOW
+    vulnerability_reachability: list[VulnerabilityReachability] = Field(
+        default_factory=list,
+        description="Reachability analysis for CVEs in this dependency"
+    )
 
 
 class AnalysisReport(BaseModel):
@@ -149,6 +192,18 @@ class AnalysisReport(BaseModel):
     overall_severity: Severity = Severity.LOW
     summary: str = ""
     recommendations: list[str] = Field(default_factory=list)
+    reachable_cve_count: int = Field(
+        default=0,
+        description="Number of CVEs with confirmed reachable vulnerable functions"
+    )
+    unreachable_cve_count: int = Field(
+        default=0,
+        description="Number of CVEs with unreachable vulnerable functions (safe to ignore)"
+    )
+    unknown_reachability_count: int = Field(
+        default=0,
+        description="Number of CVEs without function-level reachability data"
+    )
 
 
 class DependencyUpdate(BaseModel):

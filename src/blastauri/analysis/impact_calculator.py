@@ -296,10 +296,6 @@ class ImpactCalculator:
         max_score = max(u.risk_score for u in upgrades)
         max_severity = self._score_to_severity(max_score)
 
-        # Also consider cumulative impact
-        total_locations = sum(len(u.impacted_locations) for u in upgrades)
-        total_breaking = sum(len(u.breaking_changes) for u in upgrades)
-
         # Bonus for multiple high-impact upgrades
         critical_count = sum(
             1 for u in upgrades if u.severity in (Severity.CRITICAL, Severity.HIGH)

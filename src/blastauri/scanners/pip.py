@@ -18,10 +18,7 @@ class PipScanner(BaseScanner):
     """Scanner for Python ecosystem lockfiles."""
 
     lockfile_patterns: ClassVar[list[str]] = [
-        "requirements.txt",
-        "requirements-dev.txt",
-        "requirements-prod.txt",
-        "requirements*.txt",
+        "requirements*.txt",  # Matches requirements.txt, requirements-dev.txt, etc.
         "Pipfile.lock",
         "poetry.lock",
     ]

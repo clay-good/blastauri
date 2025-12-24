@@ -132,7 +132,6 @@ class CommentGenerator:
         lines: list[str] = []
 
         # Overall status badge
-        severity_icon = SEVERITY_ICONS.get(report.overall_severity, "?")
         status = self._get_status_text(report.overall_severity)
 
         lines.append(f"### Status: {status}")
@@ -410,7 +409,6 @@ class CommentGenerator:
         Returns:
             Simple comment text.
         """
-        icon = SEVERITY_ICONS.get(severity, "?")
         status = self._get_status_text(severity)
 
         parts = [
